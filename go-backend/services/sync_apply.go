@@ -160,7 +160,7 @@ func (c *pushContext) conflict(ch models.SyncChange, serverID, version int, rowJ
 // reported applied with no lost edit, or ordinary network flakiness would
 // surface spurious lost-edit counts.
 func (c *pushContext) retryOrConflict(collection string, ch models.SyncChange, serverID, version int) {
-	if c.retryMatchesCurrent(collection, ch, serverID, version) {
+	if c.retryMatchesCurrent(collection, ch, serverID) {
 		c.applied(ch, serverID, version)
 		return
 	}
@@ -168,20 +168,17 @@ func (c *pushContext) retryOrConflict(collection string, ch models.SyncChange, s
 }
 
 // retryMatchesCurrent reports whether a stale base_version is an idempotent
-// retry of an op the server already applied. Two conditions must BOTH hold:
+// retry of an op the server already applied. The current row is what our apply
+// would have left: for an upsert the re-pushed payload matches the stored
+// columns; for a delete the row is already soft-deleted.
 //
-//   - the server row advanced by exactly the one version our apply would have
-//     produced (version == base+1), and
-//   - the current row is exactly what our apply would have left: for an
-//     upsert the re-pushed payload matches the stored columns; for a delete
-//     the row is already soft-deleted.
-//
-// A genuinely stale concurrent edit (different content, or a row that jumped
-// more than one version) fails one of these and still conflicts.
-func (c *pushContext) retryMatchesCurrent(collection string, ch models.SyncChange, serverID, version int) bool {
-	if version != ch.BaseVersion+1 {
-		return false
-	}
+// Deliberately NO version guard (bead dsd): identical content is
+// definitionally not a conflict, even when the row advanced by more than one
+// version because another device happened to set the same value — reporting
+// that as a conflict would count a spurious lost edit for an edit whose intent
+// is fully reflected on the server. A genuinely stale concurrent edit with
+// DIFFERENT content still fails the payload match and conflicts.
+func (c *pushContext) retryMatchesCurrent(collection string, ch models.SyncChange, serverID int) bool {
 	return c.payloadMatchesRow(collection, ch, serverID)
 }
 
@@ -384,11 +381,11 @@ func structuredDataMatches(pushed *json.RawMessage, stored string) bool {
 	return reflect.DeepEqual(p, s)
 }
 
-func (c *pushContext) merged(ch models.SyncChange, serverID int, version int, mappedTo string) {
+func (c *pushContext) merged(collection string, ch models.SyncChange, serverID int, version int, mappedTo string) {
 	c.results = append(c.results, models.SyncPushResult{
 		RowUUID: ch.RowUUID, Status: SyncStatusMerged,
 		ServerID: &serverID, ServerVersion: version, MappedToRowUUID: mappedTo,
-		Data: c.currentRow(SyncCollectionTags, serverID),
+		Data: c.currentRow(collection, serverID),
 	})
 }
 
@@ -489,6 +486,34 @@ func (c *pushContext) ensureSelfParent(collection string, id int, cardID string)
 
 // ---- cards -----------------------------------------------------------------
 
+// findCardIDOwner returns the id/version/sync_uuid of a live row
+// (is_deleted=FALSE) that currently owns cardID, excluding excludeID (the row
+// being updated), or 0/0/"" when none. Mirrors REST's checkIsCardIDUnique for
+// the sync push path (bead Zettelgarden-idp): duplicate card_ids corrupt
+// parent resolution (GetPartialCardByCardID returns the first match), backlinks
+// (target keyed by card_id), and root-id generation, so the push path must
+// reject them exactly like REST does. Empty card_ids are exempt (REST:
+// card_id is user-editable and may be empty).
+func (c *pushContext) findCardIDOwner(cardID string, excludeID int) (int, int, string) {
+	if cardID == "" {
+		return 0, 0, ""
+	}
+	var id, version int
+	var uuid string
+	err := c.tx.QueryRow(`
+		SELECT id, version, sync_uuid FROM cards
+		WHERE user_id = $1 AND card_id = $2 AND id != $3 AND is_deleted = FALSE
+		ORDER BY id LIMIT 1`, c.userID, cardID, excludeID).Scan(&id, &version, &uuid)
+	if err == sql.ErrNoRows {
+		return 0, 0, ""
+	}
+	if err != nil {
+		log.Printf("sync push: card_id ownership lookup (%q): %v", cardID, err)
+		return 0, 0, ""
+	}
+	return id, version, uuid
+}
+
 func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	var data models.SyncCardData
 	if err := json.Unmarshal(ch.Data, &data); err != nil {
@@ -531,6 +556,20 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	if err == sql.ErrNoRows {
 		// Create. version 1 is the base for a never-synced row; the client
 		// adopts the server's version after the push.
+		// Mirror REST's card_id uniqueness (bead idp): a live row that already
+		// owns this card_id wins the LWW race. MERGE the loser onto the winner
+		// (like the tag name-merge) so the client rewrites its local row to the
+		// winner's uuid — a plain conflict would leave a ghost row that
+		// re-conflicts and loses the edit on every subsequent push.
+		if !data.IsDeleted {
+			if ownerID, ownerVersion, ownerUUID := c.findCardIDOwner(data.CardID, 0); ownerID != 0 {
+				if !c.cardRowMatchesPush(ch, ownerID) {
+					c.lost++
+				}
+				c.merged(SyncCollectionCards, ch, ownerID, ownerVersion, ownerUUID)
+				return nil
+			}
+		}
 		now := time.Now().UTC()
 		res, err := c.tx.Exec(`
 			INSERT INTO cards (card_id, title, body, link, user_id, parent_id, card_schema_id, structured_data, created_at, updated_at, version, sync_uuid, is_deleted)
@@ -583,6 +622,16 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	if ch.BaseVersion < version && !resurrect {
 		c.retryOrConflict(SyncCollectionCards, ch, id, version)
 		return nil
+	}
+	// Mirror REST's card_id uniqueness on rename (bead idp): assigning a
+	// card_id already owned by another live row is rejected as a conflict
+	// (lost edit), exactly like UpdateCard's "card_id already exists". The
+	// row EXISTS server-side, so merging onto the winner would orphan it.
+	if !data.IsDeleted {
+		if ownerID, ownerVersion, _ := c.findCardIDOwner(data.CardID, id); ownerID != 0 {
+			c.conflict(ch, ownerID, ownerVersion, c.currentRow(SyncCollectionCards, ownerID))
+			return nil
+		}
 	}
 	newVersion := max(version, ch.BaseVersion) + 1
 	_, err = c.tx.Exec(`
@@ -837,7 +886,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 				if err := c.emit(SyncCollectionTags, mergedUUID, SyncOpUpsert, newVersion); err != nil {
 					return err
 				}
-				c.merged(ch, mergedID, newVersion, mergedUUID)
+				c.merged(SyncCollectionTags, ch, mergedID, newVersion, mergedUUID)
 				return nil
 			}
 			if ch.BaseVersion <= mergedVersion && !c.deletedInBatch[mergedUUID] {
@@ -850,7 +899,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 				if c.tagPushDiffersFromRow(data, mergedID) {
 					c.lost++
 				}
-				c.merged(ch, mergedID, mergedVersion, mergedUUID)
+				c.merged(SyncCollectionTags, ch, mergedID, mergedVersion, mergedUUID)
 				return nil
 			}
 			// The client's edit is newer (or resurrects a batch-deleted row):
@@ -862,7 +911,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 			if err := c.emit(SyncCollectionTags, mergedUUID, SyncOpUpsert, newVersion); err != nil {
 				return err
 			}
-			c.merged(ch, mergedID, newVersion, mergedUUID)
+			c.merged(SyncCollectionTags, ch, mergedID, newVersion, mergedUUID)
 			return nil
 		}
 		// No row by name either: create with the client's uuid.

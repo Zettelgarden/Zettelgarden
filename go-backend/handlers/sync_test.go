@@ -1135,6 +1135,123 @@ func TestSyncPushStaleBaseConflict(t *testing.T) {
 	}
 }
 
+// TestSyncPushIdenticalContentStaleBaseNoConflict is the dsd decision: a stale
+// push whose payload is byte-identical to the current row is NOT a conflict,
+// even when the row advanced by more than one version because another device
+// happened to set the same value. The old guard required version == base+1 and
+// counted a spurious lost edit for an edit whose intent is fully reflected.
+func TestSyncPushIdenticalContentStaleBaseNoConflict(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// Create v1.
+	create := syncCardChange("c-dsd-1", "sync-dsd", "v1 title", 0)
+	resp1 := pushChanges(t, s, router, []models.SyncChange{create})
+	if resp1.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create: %+v", resp1.Results[0])
+	}
+
+	// Device A sets title "same" (v2). Device B — having adopted v2 — sets the
+	// IDENTICAL title from base 2 (v3), advancing the row two versions past A's
+	// base before A's retry lands.
+	updA := syncCardChange("c-dsd-1", "sync-dsd", "same title", 1)
+	if r := pushChanges(t, s, router, []models.SyncChange{updA}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("update A: %+v", r.Results[0])
+	}
+	updB := syncCardChange("c-dsd-1", "sync-dsd", "same title", 2)
+	if r := pushChanges(t, s, router, []models.SyncChange{updB}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("update B: %+v", r.Results[0])
+	}
+
+	// A's dropped-response retry arrives with base 1 but the row is now v3
+	// (not base+1). Identical content -> applied, zero lost edits.
+	retry := pushChanges(t, s, router, []models.SyncChange{updA})
+	if retry.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("identical-content stale retry: expected applied, got %+v", retry.Results[0])
+	}
+	if retry.LostEdits != 0 {
+		t.Errorf("identical-content stale retry counted %d lost edits, want 0", retry.LostEdits)
+	}
+	if retry.Results[0].ServerVersion != 3 {
+		t.Errorf("server_version = %d, want 3", retry.Results[0].ServerVersion)
+	}
+}
+
+// TestSyncPushRejectsDuplicateCardID is the idp decision: the sync push path
+// enforces card_id uniqueness exactly like REST (checkIsCardIDUnique), so two
+// offline devices creating the same card_id cannot both land — the loser gets
+// a conflict + lost edit and the server stays free of duplicates that would
+// corrupt parent/backlink/root-id lookups.
+func TestSyncPushRejectsDuplicateCardID(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// Device A creates card_id DUP1 (uuid c-idp-a).
+	if r := pushChanges(t, s, router, []models.SyncChange{syncCardChange("c-idp-a", "DUP1", "winner", 0)}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create A: %+v", r.Results[0])
+	}
+
+	// Device B creates the SAME card_id (uuid c-idp-b): the loser is MERGED
+	// onto the winner (adopt the winner's uuid, like the tag name-merge) so no
+	// ghost row lingers to re-conflict on every edit. Different content -> the
+	// losing edit is counted.
+	loser := syncCardChange("c-idp-b", "DUP1", "loser", 0)
+	resp := pushChanges(t, s, router, []models.SyncChange{loser})
+	if resp.Results[0].Status != services.SyncStatusMerged {
+		t.Fatalf("duplicate card_id create: expected merged, got %+v", resp.Results[0])
+	}
+	if resp.Results[0].MappedToRowUUID == "" {
+		t.Errorf("merged result missing mapped_to_row_uuid: %+v", resp.Results[0])
+	}
+	if resp.LostEdits != 1 {
+		t.Errorf("lost_edits = %d, want 1 (loser's different content discarded)", resp.LostEdits)
+	}
+	// The merge payload is the winner's row (server-authoritative). Note:
+	// currentRow emits SQLite-native 0/1 for is_deleted (the engine's
+	// rowIsDeleted handles the truthiness), so assert via a loose map.
+	var mergeData map[string]interface{}
+	if err := json.Unmarshal(resp.Results[0].Data, &mergeData); err != nil {
+		t.Fatalf("merge data: %v", err)
+	}
+	if mergeData["card_id"] != "DUP1" || mergeData["title"] != "winner" {
+		t.Errorf("merge data = %v, want winner's row", mergeData)
+	}
+
+	// Server has exactly ONE live row with DUP1 (the winner).
+	var count int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM cards WHERE card_id = 'DUP1' AND is_deleted = FALSE`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("live rows with card_id DUP1 = %d, want 1", count)
+	}
+
+	// Rename collision: B's card (uuid c-idp-b2, card_id DUP2) renames to
+	// DUP1 -> conflict, keeps DUP2 server-side.
+	if r := pushChanges(t, s, router, []models.SyncChange{syncCardChange("c-idp-b2", "DUP2", "b card", 0)}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create B2: %+v", r.Results[0])
+	}
+	rename := syncCardChange("c-idp-b2", "DUP1", "b card renamed", 1)
+	respR := pushChanges(t, s, router, []models.SyncChange{rename})
+	if respR.Results[0].Status != services.SyncStatusConflict {
+		t.Fatalf("rename to owned card_id: expected conflict, got %+v", respR.Results[0])
+	}
+	var serverCardID string
+	if err := s.GetDB().QueryRow(`SELECT card_id FROM cards WHERE sync_uuid = 'c-idp-b2'`).Scan(&serverCardID); err != nil {
+		t.Fatal(err)
+	}
+	if serverCardID != "DUP2" {
+		t.Errorf("server card_id after refused rename = %q, want DUP2", serverCardID)
+	}
+
+	// Empty card_id is exempt (REST allows empty).
+	if r := pushChanges(t, s, router, []models.SyncChange{syncCardChange("c-idp-empty", "", "no id", 0)}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create with empty card_id: expected applied, got %+v", r.Results[0])
+	}
+}
+
 func TestSyncPushDeletePropagates(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()

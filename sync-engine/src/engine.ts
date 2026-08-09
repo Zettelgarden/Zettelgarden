@@ -419,8 +419,11 @@ export class SyncEngine {
         break;
       }
       case 'merged': {
-        // Tag name-merge: the server reused another row. Rewrite THIS local
-        // row to the surviving uuid, adopting the server's canonical state.
+        // The server reused another row: a tag name-keyed merge (two devices
+        // created the same tag name) or a card_id merge (two devices created
+        // the same card_id; the loser adopts the winner's uuid — bead idp).
+        // Rewrite THIS local row to the surviving uuid, adopting the server's
+        // canonical state.
         const existing = await this.storage.getRow(entry.collection, entry.rowUuid);
         if (existing && result.mappedToRowUuid) {
           await this.storage.deleteRow(entry.collection, entry.rowUuid);
