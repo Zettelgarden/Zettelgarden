@@ -118,6 +118,28 @@ func (h *Handler) BeginTx() (*sql.Tx, error) {
 	return h.DB.Begin()
 }
 
+// commitTx commits the handler's transaction in production. In testing it is a
+// no-op: BeginTx returns the shared test transaction and the test framework
+// rolls it back. Write routes use this so the row mutation and its sync_log
+// emit land in ONE transaction in production (bead Zettelgarden-5ry) — a
+// failed emit must roll the mutation back with it, never leave a committed row
+// that is invisible to sync.
+func (h *Handler) commitTx(tx *sql.Tx) error {
+	if !h.ShouldCommitTx() {
+		return nil
+	}
+	return tx.Commit()
+}
+
+// rollbackTx rolls back the handler's transaction on error in production. In
+// testing it is a no-op: tx is the shared test transaction, and rolling it
+// back mid-test would poison every later request in the same test.
+func (h *Handler) rollbackTx(tx *sql.Tx) {
+	if h.ShouldCommitTx() {
+		tx.Rollback()
+	}
+}
+
 // getMessageMutex gets or creates a mutex for a specific message
 func (s *Handler) getMessageMutex(messageID string) *sync.Mutex {
 	mu, _ := s.messageMutexes.LoadOrStore(messageID, &sync.Mutex{})

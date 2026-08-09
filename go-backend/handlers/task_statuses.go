@@ -111,10 +111,22 @@ func (s *Handler) DeleteTaskStatusRoute(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = services.DeleteTaskStatus(s.GetDB(), userID, statusID)
+	// Status DELETE + reassignment emits in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	err = services.DeleteTaskStatus(tx, userID, statusID)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error deleting task status: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("delete task status: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 

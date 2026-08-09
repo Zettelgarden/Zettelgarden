@@ -219,21 +219,17 @@ func (s *Handler) GetTasksRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Handler) UpdateTask(userID int, id int, task models.Task) error {
-	recurringTaskID, err := services.UpdateTask(s.GetDB(), userID, id, task)
+// UpdateTask applies a task update on db (the caller's transaction) and
+// returns the id of a recurring task created by the update, if any. Tag
+// re-derivation from the title is the CALLER's job after commit (it derives
+// separate rows with their own emits; bead Zettelgarden-5ry keeps the primary
+// task write + emit atomic in the caller's tx).
+func (s *Handler) UpdateTask(db models.Database, userID int, id int, task models.Task) (int, error) {
+	recurringTaskID, err := services.UpdateTask(db, userID, id, task)
 	if err != nil {
-		return err
+		return 0, err
 	}
-
-	// Add tags after updating the task
-	s.AddTagsFromTask(userID, id)
-
-	// If a recurring task was created, process its tags too
-	if recurringTaskID > 0 {
-		s.AddTagsFromTask(userID, recurringTaskID)
-	}
-
-	return nil
+	return recurringTaskID, nil
 }
 
 func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
@@ -293,10 +289,29 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	// Note: Frontend sends times as ISO 8601 UTC strings (toISOString()),
 	// so JSON parsing already correctly sets them as UTC. No conversion needed.
 
-	if err := s.UpdateTask(userID, id, task); err != nil {
+	// Task UPDATE + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
+	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	recurringTaskID, err := s.UpdateTask(tx, userID, id, task)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error updating task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("update task: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
+		return
+	}
+
+	// Post-commit tag re-derivation (derived rows with their own emits).
+	s.AddTagsFromTask(userID, id)
+	if recurringTaskID > 0 {
+		s.AddTagsFromTask(userID, recurringTaskID)
 	}
 
 	response := models.GenericResponse{
@@ -309,15 +324,11 @@ func (s *Handler) UpdateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-func (s *Handler) CreateTask(task models.Task) (int, error) {
-	taskID, err := services.CreateTask(s.GetDB(), task)
-	if err != nil {
-		return 0, err
-	}
-
-	// Add tags after creating the task
-	s.AddTagsFromTask(task.UserID, taskID)
-	return taskID, nil
+// CreateTask inserts a task on db (the caller's transaction) and returns its
+// id. Tag re-derivation from the title is the CALLER's job after commit (see
+// UpdateTask; bead Zettelgarden-5ry).
+func (s *Handler) CreateTask(db models.Database, task models.Task) (int, error) {
+	return services.CreateTask(db, task)
 }
 
 func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
@@ -341,20 +352,36 @@ func (s *Handler) CreateTaskRoute(w http.ResponseWriter, r *http.Request) {
 	// Note: Frontend sends times as ISO 8601 UTC strings (toISOString()),
 	// so JSON parsing already correctly sets them as UTC. No conversion needed.
 
-	taskID, err := s.CreateTask(task)
+	// Task INSERT + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	taskID, err := s.CreateTask(tx, task)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error creating task: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("create task: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
+		return
+	}
+
+	// Post-commit tag re-derivation.
+	s.AddTagsFromTask(task.UserID, taskID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]int{"id": taskID})
 }
 
-func (s *Handler) DeleteTask(userID int, id int) error {
-	return services.DeleteTask(s.GetDB(), userID, id)
+// DeleteTask soft-deletes a task on db (the caller's transaction).
+func (s *Handler) DeleteTask(db models.Database, userID int, id int) error {
+	return services.DeleteTask(db, userID, id)
 }
 
 func (s *Handler) DeleteTaskRoute(w http.ResponseWriter, r *http.Request) {
@@ -366,15 +393,26 @@ func (s *Handler) DeleteTaskRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.DeleteTask(userID, id)
+	// Task DELETE + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	err = s.DeleteTask(tx, userID, id)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error deleting task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("delete task: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
 
 func (s *Handler) GetTaskAuditEventsRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
@@ -560,15 +598,27 @@ func (s *Handler) CompleteAndScheduleTaskRoute(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Call the service to complete the task and create a new one
-	newTaskID, err := services.CompleteAndScheduleTask(s.GetDB(), userID, id, requestBody.Days, completeStatus.Name, defaultStatus.Name)
+	// Call the service to complete the task and create a new one (both the
+	// completion UPDATE + emit and the new task INSERT + emit in one tx, 5ry)
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	newTaskID, err := services.CompleteAndScheduleTask(tx, userID, id, requestBody.Days, completeStatus.Name, defaultStatus.Name)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error completing and scheduling task %d: %v", id, err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("complete and schedule task: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
+		return
+	}
 
-	// Add tags to the new task
+	// Post-commit tag re-derivation for the new task.
 	if newTaskID > 0 {
 		s.AddTagsFromTask(userID, newTaskID)
 	}
@@ -621,13 +671,25 @@ func (s *Handler) CreateSubtaskRoute(w http.ResponseWriter, r *http.Request) {
 	// Prepare subtask with inheritance
 	subtask := services.PrepareSubtask(&parent, input)
 
-	// Create the subtask
-	taskID, err := s.CreateTask(subtask)
+	// Create the subtask (INSERT + sync_log emit in one tx, then derived tags).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	taskID, err := s.CreateTask(tx, subtask)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error creating subtask: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("create subtask: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
+		return
+	}
+	s.AddTagsFromTask(subtask.UserID, taskID)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -682,10 +744,21 @@ func (s *Handler) SetTaskParentRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Update the task's parent
-	if err := services.UpdateTaskParent(s.GetDB(), userID, taskID, input.ParentTaskID); err != nil {
+	// Update the task's parent (UPDATE + sync_log emit in one tx, 5ry)
+	tx, err := s.BeginTx()
+	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	if err := services.UpdateTaskParent(tx, userID, taskID, input.ParentTaskID); err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error updating task parent: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("update task parent: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 
@@ -770,9 +843,23 @@ func (s *Handler) ReorderTasksRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := services.ReorderTasks(s.GetDB(), userID, payload.Orders); err != nil {
+	// Reorder is already transactional via services.ReorderTasks on the passed
+	// handle; wrap it so every sort_order UPDATE + its sync_log emit commit
+	// atomically in production (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
+	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	if err := services.ReorderTasks(tx, userID, payload.Orders); err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error reordering tasks: %v", err)
 		http.Error(w, "Failed to reorder tasks", http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("reorder tasks: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 

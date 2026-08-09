@@ -14,10 +14,10 @@ import (
 
 // StructuredDataResponse represents the response for getting structured data
 type StructuredDataResponse struct {
-	SchemaID       int                `json:"schema_id,omitempty"`
-	SchemaName     string             `json:"schema_name,omitempty"`
-	SchemaSlug     string             `json:"schema_slug,omitempty"`
-	StructuredData *json.RawMessage   `json:"structured_data,omitempty"`
+	SchemaID       int              `json:"schema_id,omitempty"`
+	SchemaName     string           `json:"schema_name,omitempty"`
+	SchemaSlug     string           `json:"schema_slug,omitempty"`
+	StructuredData *json.RawMessage `json:"structured_data,omitempty"`
 }
 
 // UpdateStructuredDataRequest is the request body for updating structured data
@@ -149,11 +149,23 @@ func (s *Handler) UpdateCardStructuredDataRoute(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	// Update only the structured data fields
-	updatedCard, err := services.UpdateCardStructuredData(s.GetDB(), userID, id, schemaID, structuredData)
+	// Update only the structured data fields (UPDATE + sync_log emit in one tx,
+	// bead Zettelgarden-5ry)
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	updatedCard, err := services.UpdateCardStructuredData(tx, userID, id, schemaID, structuredData)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error updating structured data: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("update structured data: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 
@@ -232,11 +244,22 @@ func (s *Handler) PatchCardStructuredDataRoute(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Update with merged data
-	updatedCard, err := services.UpdateCardStructuredData(s.GetDB(), userID, id, card.SchemaID, &cleanedData)
+	// Update with merged data (UPDATE + sync_log emit in one tx, 5ry)
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	updatedCard, err := services.UpdateCardStructuredData(tx, userID, id, card.SchemaID, &cleanedData)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error updating structured data: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("patch structured data: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 
@@ -260,11 +283,22 @@ func (s *Handler) DeleteCardStructuredDataRoute(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Clear structured data
-	updatedCard, err := services.UpdateCardStructuredData(s.GetDB(), userID, id, nil, nil)
+	// Clear structured data (UPDATE + sync_log emit in one tx, 5ry)
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	updatedCard, err := services.UpdateCardStructuredData(tx, userID, id, nil, nil)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error clearing structured data: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("clear structured data: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 

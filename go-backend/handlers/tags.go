@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go-backend/models"
 	"go-backend/services"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -44,9 +45,21 @@ func (s *Handler) CreateTagRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tag, err := services.CreateTag(s.GetDB(), userID, tagData)
+	// Tag INSERT + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	tag, err := services.CreateTag(tx, userID, tagData)
+	if err != nil {
+		s.rollbackTx(tx)
 		http.Error(w, fmt.Sprintf("Error creating tag: %v", err), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("create tag: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 
@@ -94,8 +107,9 @@ func (s *Handler) QueryTagsForTask(userID int, taskPK int) ([]models.Tag, error)
 	return services.QueryTagsForTask(s.GetDB(), userID, taskPK)
 }
 
-func (s *Handler) DeleteTag(userID, id int) error {
-	return services.DeleteTag(s.GetDB(), userID, id)
+// DeleteTag soft-deletes a tag on db (the caller's transaction).
+func (s *Handler) DeleteTag(db models.Database, userID, id int) error {
+	return services.DeleteTag(db, userID, id)
 }
 
 func (s *Handler) DeleteTagRoute(w http.ResponseWriter, r *http.Request) {
@@ -105,9 +119,21 @@ func (s *Handler) DeleteTagRoute(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid id", http.StatusBadRequest)
 		return
 	}
-	err = s.DeleteTag(userID, id)
+	// Tag DELETE + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	err = s.DeleteTag(tx, userID, id)
+	if err != nil {
+		s.rollbackTx(tx)
 		http.Error(w, fmt.Sprintf("unable to delete tag: %v", err.Error()), http.StatusBadRequest)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("delete tag: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

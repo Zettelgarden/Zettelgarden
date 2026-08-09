@@ -456,6 +456,96 @@ func TestCreateCardSuccess(t *testing.T) {
 	}
 }
 
+// TestCreateUpdateDeleteCardRoutesEmitSyncLog verifies the REST card write
+// routes drive the sync change feed (bead Zettelgarden-5ry): create, update,
+// and delete each emit exactly one sync_log entry for the row, in the same
+// transaction as the mutation. A regression where a route stops emitting (or
+// emits in a separate transaction that can fail silently) is caught here.
+func TestCreateUpdateDeleteCardRoutesEmitSyncLog(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	// gorilla/mux populates its vars map only when the request is served
+	// through a router with the {id} pattern.
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}", s.JwtMiddleware(s.UpdateCardRoute)).Methods("PUT")
+	router.HandleFunc("/api/cards/{id}", s.JwtMiddleware(s.DeleteCardRoute)).Methods("DELETE")
+
+	create := func() models.Card {
+		data := models.EditCardParams{Title: "emit me", Body: "body", CardID: "emit1"}
+		jsonData, _ := json.Marshal(data)
+		req, _ := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+		http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute)).ServeHTTP(rr, req)
+		if rr.Code != http.StatusCreated {
+			t.Fatalf("create: status %d: %s", rr.Code, rr.Body.String())
+		}
+		var card models.Card
+		tests.ParseJsonResponse(t, rr.Body.Bytes(), &card)
+		return card
+	}
+	update := func(id int) {
+		data := models.EditCardParams{Title: "emit me v2", Body: "body", CardID: "emit1"}
+		jsonData, _ := json.Marshal(data)
+		req, _ := http.NewRequest("PUT", "/api/cards/"+strconv.Itoa(id), bytes.NewBuffer(jsonData))
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("update: status %d: %s", rr.Code, rr.Body.String())
+		}
+	}
+	remove := func(id int) {
+		req, _ := http.NewRequest("DELETE", "/api/cards/"+strconv.Itoa(id), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+		router.ServeHTTP(rr, req)
+		if rr.Code != http.StatusNoContent {
+			t.Fatalf("delete: status %d: %s", rr.Code, rr.Body.String())
+		}
+	}
+
+	countEntries := func(uuid string) []string {
+		rows, err := s.GetDB().Query(`SELECT op, version FROM sync_log WHERE row_uuid = $1 AND collection = $2 ORDER BY id`, uuid, services.SyncCollectionCards)
+		if err != nil {
+			t.Fatalf("query sync_log: %v", err)
+		}
+		defer rows.Close()
+		var ops []string
+		for rows.Next() {
+			var op string
+			var version int
+			if err := rows.Scan(&op, &version); err != nil {
+				t.Fatal(err)
+			}
+			ops = append(ops, fmt.Sprintf("%s:%d", op, version))
+		}
+		return ops
+	}
+
+	card := create()
+	var uuid string
+	if err := s.GetDB().QueryRow(`SELECT sync_uuid FROM cards WHERE id = $1`, card.ID).Scan(&uuid); err != nil {
+		t.Fatal(err)
+	}
+	if ops := countEntries(uuid); len(ops) != 1 || ops[0] != "upsert:1" {
+		t.Fatalf("after create, sync_log = %v, want [upsert:1]", ops)
+	}
+
+	update(card.ID)
+	if ops := countEntries(uuid); len(ops) != 2 || ops[1] != "upsert:2" {
+		t.Fatalf("after update, sync_log = %v, want [..., upsert:2]", ops)
+	}
+
+	remove(card.ID)
+	if ops := countEntries(uuid); len(ops) != 3 || ops[2] != "delete:3" {
+		t.Fatalf("after delete, sync_log = %v, want [..., delete:3]", ops)
+	}
+}
+
 func TestCreateCardDuplicateCardID(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()

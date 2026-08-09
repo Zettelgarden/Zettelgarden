@@ -382,10 +382,22 @@ func (s *Handler) UpdateCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	card, err := services.UpdateCard(s.GetDB(), userID, id, params)
+	// Card UPDATE + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	card, err := services.UpdateCard(tx, userID, id, params)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("error updating card: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("update card: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 	shouldProcess := params.ProcessEntitiesAndFacts != nil && *params.ProcessEntitiesAndFacts
@@ -451,10 +463,22 @@ func (s *Handler) CreateCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Use transaction during testing, regular DB otherwise
-	card, err := services.CreateCard(s.GetDB(), userID, params)
+	// The card INSERT + its sync_log emit are one transaction in production
+	// (bead Zettelgarden-5ry): a failed emit rolls the row back with it.
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	card, err := services.CreateCard(tx, userID, params)
+	if err != nil {
+		s.rollbackTx(tx)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("create card: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 	shouldProcess := params.ProcessEntitiesAndFacts == nil || *params.ProcessEntitiesAndFacts
@@ -472,8 +496,15 @@ func (s *Handler) DeleteCardRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = services.DeleteCard(s.GetDB(), userID, id)
+	// Card DELETE + sync_log emit in one transaction (bead Zettelgarden-5ry).
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	err = services.DeleteCard(tx, userID, id)
+	if err != nil {
+		s.rollbackTx(tx)
 		if err.Error() == "card not found" {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
@@ -483,6 +514,11 @@ func (s *Handler) DeleteCardRoute(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("delete card: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 
@@ -1311,7 +1347,7 @@ func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
 	}
 	body := markdown + "\n\n" + tags
 
-	// Step 4: Create the card
+	// Step 4: Create the card (INSERT + sync_log emit in one tx, 5ry)
 	params := models.EditCardParams{
 		CardID:                  cardID,
 		Title:                   article.Title,
@@ -1320,10 +1356,21 @@ func (s *Handler) CreateArticleRoute(w http.ResponseWriter, r *http.Request) {
 		ProcessEntitiesAndFacts: boolPtr(true),
 	}
 
-	card, err := services.CreateCard(s.GetDB(), userID, params)
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	card, err := services.CreateCard(tx, userID, params)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error creating card: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to create card: %v", err), http.StatusBadRequest)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("create article card: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 
