@@ -125,7 +125,7 @@ zg card clear-structured-data 42
 
 ```bash
 zg task get <id>              # Get a task
-zg task list [--completed]    # List tasks
+zg task list [--completed|--incomplete]  # List tasks (filter by completion state)
 zg task create -t "Title"     # Create task
 zg task update <id> --complete # Update task
 zg task complete <id>         # Mark complete

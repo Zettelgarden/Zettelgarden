@@ -99,11 +99,12 @@ var taskCompleteCmd = &cobra.Command{
 }
 
 var (
-	taskListLimit       int
-	taskListCompleted   *bool
-	taskListPriority    string
-	taskListScheduled   string
-	taskListStatus      string
+	taskListLimit      int
+	taskListCompleted  bool
+	taskListIncomplete bool
+	taskListPriority   string
+	taskListScheduled  string
+	taskListStatus     string
 
 	taskCreateTitle       string
 	taskCreateDescription string
@@ -112,7 +113,8 @@ var (
 
 	taskUpdateTitle       string
 	taskUpdateDescription string
-	taskUpdateIsComplete  *bool
+	taskUpdateComplete    bool
+	taskUpdateIncomplete  bool
 	taskUpdatePriority    string
 	taskUpdateScheduled   string
 	taskUpdateStatus      string
@@ -123,11 +125,9 @@ func init() {
 	taskCmd.AddCommand(taskGetCmd)
 
 	// Task list command with flags
-	taskListCompletedVal := false
-	taskListCompleted = &taskListCompletedVal
 	taskListCmd.Flags().IntVarP(&taskListLimit, "limit", "l", 50, "Limit results")
-	taskListCmd.Flags().BoolVar(taskListCompleted, "completed", false, "Show only completed tasks")
-	taskListCmd.Flags().BoolVar(taskListCompleted, "incomplete", false, "Show only incomplete tasks")
+	taskListCmd.Flags().BoolVar(&taskListCompleted, "completed", false, "Show only completed tasks")
+	taskListCmd.Flags().BoolVar(&taskListIncomplete, "incomplete", false, "Show only incomplete tasks")
 	taskListCmd.Flags().StringVarP(&taskListPriority, "priority", "p", "", "Filter by priority (high/medium/low)")
 	taskListCmd.Flags().StringVar(&taskListScheduled, "scheduled-date", "", "Filter by scheduled date (YYYY-MM-DD)")
 	taskListCmd.Flags().StringVar(&taskListStatus, "status", "", "Filter by status")
@@ -142,12 +142,10 @@ func init() {
 	taskCmd.AddCommand(taskCreateCmd)
 
 	// Task update command with flags
-	taskUpdateCompleteVal := false
-	taskUpdateIsComplete = &taskUpdateCompleteVal
 	taskUpdateCmd.Flags().StringVarP(&taskUpdateTitle, "title", "t", "", "New title")
 	taskUpdateCmd.Flags().StringVarP(&taskUpdateDescription, "description", "d", "", "New description")
-	taskUpdateCmd.Flags().BoolVar(taskUpdateIsComplete, "complete", false, "Mark as complete")
-	taskUpdateCmd.Flags().BoolVar(taskUpdateIsComplete, "incomplete", false, "Mark as incomplete")
+	taskUpdateCmd.Flags().BoolVar(&taskUpdateComplete, "complete", false, "Mark as complete")
+	taskUpdateCmd.Flags().BoolVar(&taskUpdateIncomplete, "incomplete", false, "Mark as incomplete")
 	taskUpdateCmd.Flags().StringVarP(&taskUpdatePriority, "priority", "p", "", "New priority")
 	taskUpdateCmd.Flags().StringVar(&taskUpdateScheduled, "scheduled-date", "", "New scheduled date (YYYY-MM-DD, 'today', or 'tomorrow')")
 	taskUpdateCmd.Flags().StringVar(&taskUpdateStatus, "status", "", "New status")
@@ -201,8 +199,11 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	}
 
 	url := fmt.Sprintf("/api/tasks?limit=%d", taskListLimit)
-	if cmd.Flags().Changed("completed") || cmd.Flags().Changed("incomplete") {
-		url += "&completed=" + strconv.FormatBool(*taskListCompleted)
+	if cmd.Flags().Changed("completed") {
+		url += "&completed=" + strconv.FormatBool(taskListCompleted)
+	}
+	if cmd.Flags().Changed("incomplete") {
+		url += "&completed=" + strconv.FormatBool(!taskListIncomplete)
 	}
 	if taskListPriority != "" {
 		url += "&priority=" + taskListPriority
@@ -316,8 +317,11 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 	if taskUpdateDescription != "" {
 		requestBody["description"] = taskUpdateDescription
 	}
-	if cmd.Flags().Changed("complete") || cmd.Flags().Changed("incomplete") {
-		requestBody["is_complete"] = *taskUpdateIsComplete
+	if cmd.Flags().Changed("complete") {
+		requestBody["is_complete"] = taskUpdateComplete
+	}
+	if cmd.Flags().Changed("incomplete") {
+		requestBody["is_complete"] = !taskUpdateIncomplete
 	}
 	if taskUpdatePriority != "" {
 		requestBody["priority"] = taskUpdatePriority
