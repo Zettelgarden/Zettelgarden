@@ -1018,3 +1018,94 @@ func TestRunFileListQuerySnippet(t *testing.T) {
 		t.Errorf("expected 0 results for non-matching search, got %d", len(files))
 	}
 }
+
+// TestGetAllFilesTagFilter verifies the tag filter param on GET /files
+// (Zettelgarden-72f.8): an EXISTS join narrows to files carrying the tag, and
+// the filter composes with the unlinked filter.
+func TestGetAllFilesTagFilter(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	var tagID int
+	err := s.GetDB().QueryRow("INSERT INTO file_tags (user_id, name) VALUES (1, 'receipts') RETURNING id").Scan(&tagID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetDB().Exec("INSERT INTO files_tags (file_id, tag_id) VALUES (3, $1), (5, $1)", tagID); err != nil {
+		t.Fatal(err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/files?tag=receipts", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetAllFilesRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	var response struct {
+		Files []models.File `json:"files"`
+		Total int           `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if response.Total != 2 {
+		t.Errorf("total = %d, want 2", response.Total)
+	}
+	seen := map[int]bool{}
+	for _, f := range response.Files {
+		seen[f.ID] = true
+	}
+	if !seen[3] || !seen[5] {
+		t.Errorf("expected files 3 and 5, got %v", seen)
+	}
+
+	// Composes with the unlinked filter: fixture files have card_pk 1..5, so
+	// unlinked + tag should return nothing.
+	req2, _ := http.NewRequest("GET", "/api/files?tag=receipts&unlinked=true", nil)
+	req2.Header.Set("Authorization", "Bearer "+token)
+	rr2 := httptest.NewRecorder()
+	handler.ServeHTTP(rr2, req2)
+	var response2 struct {
+		Total int `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr2.Body.Bytes(), &response2)
+	if response2.Total != 0 {
+		t.Errorf("tag + unlinked total = %d, want 0", response2.Total)
+	}
+}
+
+// TestGetAllFilesTagFilterUnknownTag verifies an unknown tag yields an empty
+// (non-null) list.
+func TestGetAllFilesTagFilterUnknownTag(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/files?tag=nonexistent", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetAllFilesRoute))
+	handler.ServeHTTP(rr, req)
+
+	var response struct {
+		Files []models.File `json:"files"`
+		Total int           `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if response.Total != 0 || len(response.Files) != 0 {
+		t.Errorf("expected 0 results, got total=%d len=%d", response.Total, len(response.Files))
+	}
+	if response.Files == nil {
+		t.Errorf("files must be an empty array, got nil")
+	}
+}

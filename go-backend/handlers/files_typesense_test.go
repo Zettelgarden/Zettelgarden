@@ -41,3 +41,12 @@ func TestFileIDFromDocument(t *testing.T) {
 		t.Errorf("missing file_id should return ok=false")
 	}
 }
+
+func TestBuildTypesenseFilterBy(t *testing.T) {
+	if got := buildTypesenseFilterBy(3, ""); got != "user_id:3" {
+		t.Errorf("no tag: got %q, want %q", got, "user_id:3")
+	}
+	if got := buildTypesenseFilterBy(3, "receipts"); got != "user_id:3 && tags:=receipts" {
+		t.Errorf("with tag: got %q, want %q", got, "user_id:3 && tags:=receipts")
+	}
+}

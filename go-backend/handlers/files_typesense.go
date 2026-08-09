@@ -163,18 +163,18 @@ func (s *Handler) DeleteFileFromTypesense(ctx context.Context, fileID int) error
 // to the shared SQL query path (Typesense has no LIKE/substring filter support).
 // Both shapes include storage_used + max_storage so the quota bar keeps working
 // (Zettelgarden-72f.3).
-func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query, filetypeFilter string, unlinkedOnly bool, sortBy, sortOrder string, page, perPage int) (interface{}, error) {
+func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query, filetypeFilter, tagFilter string, unlinkedOnly bool, sortBy, sortOrder string, page, perPage int) (interface{}, error) {
 	if s.Server.TypesenseClient == nil {
 		return nil, fmt.Errorf("Typesense client not initialized")
 	}
 
 	if filetypeFilter == "" && !unlinkedOnly {
-		return s.searchFilesInTypesenseNative(ctx, userID, query, sortBy, sortOrder, page, perPage)
+		return s.searchFilesInTypesenseNative(ctx, userID, query, tagFilter, sortBy, sortOrder, page, perPage)
 	}
 
 	// Filtered path: Typesense finds candidates, SQL applies filetype/unlinked
 	// filters + sort + pagination.
-	fileIDs, err := s.collectFileIDsFromTypesense(ctx, userID, query)
+	fileIDs, err := s.collectFileIDsFromTypesense(ctx, userID, query, tagFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -183,6 +183,7 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query,
 		FileIDs:        fileIDs,
 		SearchTerm:     query,
 		FiletypeFilter: filetypeFilter,
+		TagFilter:      tagFilter,
 		UnlinkedOnly:   unlinkedOnly,
 		SortBy:         sortBy,
 		SortOrder:      sortOrder,
@@ -198,12 +199,12 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query,
 // searchFilesInTypesenseNative runs a plain Typesense search (no filetype or
 // unlinked filters), paginates natively, and enriches each hit with the fields
 // the frontend needs (filetype key, card, description, storage quota).
-func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, query, sortBy, sortOrder string, page, perPage int) (interface{}, error) {
+func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, query, tagFilter, sortBy, sortOrder string, page, perPage int) (interface{}, error) {
 	if s.Server.TypesenseClient == nil {
 		return nil, fmt.Errorf("Typesense client not initialized")
 	}
 
-	filterBy := fmt.Sprintf("user_id:%d", userID)
+	filterBy := buildTypesenseFilterBy(userID, tagFilter)
 	tsSortBy := buildTypesenseSortBy(sortBy, sortOrder)
 	searchParams := &api.SearchCollectionParams{
 		Q:        query,
@@ -385,12 +386,12 @@ func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, 
 
 // collectFileIDsFromTypesense walks all result pages of a Typesense search and
 // returns the matching file IDs (bounded to keep the IN clause + latency sane).
-func (s *Handler) collectFileIDsFromTypesense(ctx context.Context, userID int, query string) ([]int, error) {
+func (s *Handler) collectFileIDsFromTypesense(ctx context.Context, userID int, query, tagFilter string) ([]int, error) {
 	if s.Server.TypesenseClient == nil {
 		return nil, fmt.Errorf("Typesense client not initialized")
 	}
 
-	filterBy := fmt.Sprintf("user_id:%d", userID)
+	filterBy := buildTypesenseFilterBy(userID, tagFilter)
 	sortBy := "_text_match:desc"
 	fileIDs := []int{}
 	const (
@@ -442,6 +443,16 @@ func fileIDFromDocument(doc map[string]interface{}) (int, bool) {
 		return int(v), true
 	}
 	return 0, false
+}
+
+// buildTypesenseFilterBy builds the Typesense filter_by string for a user,
+// optionally narrowed to files carrying the given tag (exact array match).
+func buildTypesenseFilterBy(userID int, tagFilter string) string {
+	filterBy := fmt.Sprintf("user_id:%d", userID)
+	if tagFilter != "" {
+		filterBy += " && tags:=" + tagFilter
+	}
+	return filterBy
 }
 
 // buildTypesenseSortBy maps the UI sort/order params onto a Typesense sort_by

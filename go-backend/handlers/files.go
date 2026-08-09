@@ -144,6 +144,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	unlinkedOnly := r.URL.Query().Get("unlinked") == "true"
 	sortBy := r.URL.Query().Get("sort")     // name, date, size, type, card
 	sortOrder := r.URL.Query().Get("order") // asc, desc
+	tagFilter := r.URL.Query().Get("tag")
 
 	// Default sort
 	if sortBy == "" {
@@ -160,7 +161,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		// unlinked / sort / order params and returns storage_used + max_storage
 		// just like the SQL path (Zettelgarden-72f.3). On failure we fall back
 		// to the SQL search below.
-		if result, err := s.searchFilesInTypesense(r.Context(), userID, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder, page, perPage); err == nil && result != nil {
+		if result, err := s.searchFilesInTypesense(r.Context(), userID, searchTerm, filetypeFilter, tagFilter, unlinkedOnly, sortBy, sortOrder, page, perPage); err == nil && result != nil {
 			response = result
 		} else {
 			if err != nil {
@@ -171,6 +172,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 				SearchPattern:  "%" + searchTerm + "%",
 				SearchTerm:     searchTerm,
 				FiletypeFilter: filetypeFilter,
+				TagFilter:      tagFilter,
 				UnlinkedOnly:   unlinkedOnly,
 				SortBy:         sortBy,
 				SortOrder:      sortOrder,
@@ -188,6 +190,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		q := fileListQuery{
 			UserID:         userID,
 			FiletypeFilter: filetypeFilter,
+			TagFilter:      tagFilter,
 			UnlinkedOnly:   unlinkedOnly,
 			SortBy:         sortBy,
 			SortOrder:      sortOrder,
@@ -218,6 +221,7 @@ type fileListQuery struct {
 	SearchTerm     string // raw search term; when set, results carry snippet + snippet_field
 	FileIDs        []int  // optional exact ID set (Typesense candidates); takes precedence over SearchPattern
 	FiletypeFilter string
+	TagFilter      string // tag name to filter by (EXISTS join on files_tags)
 	UnlinkedOnly   bool
 	SortBy         string
 	SortOrder      string
@@ -360,6 +364,14 @@ func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, in
 	// Add unlinked filter (files not attached to any card)
 	if q.UnlinkedOnly {
 		whereConditions = append(whereConditions, "(f.card_pk IS NULL OR f.card_pk <= 0)")
+	}
+
+	// Add tag filter (files tagged with the given tag name)
+	if q.TagFilter != "" {
+		whereConditions = append(whereConditions, "EXISTS (SELECT 1 FROM files_tags ft JOIN file_tags t ON t.id = ft.tag_id WHERE ft.file_id = f.id AND t.user_id = $"+strconv.Itoa(argNum)+" AND t.name = $"+strconv.Itoa(argNum+1)+")")
+		queryArgs = append(queryArgs, q.UserID, q.TagFilter)
+		countArgs = append(countArgs, q.UserID, q.TagFilter)
+		argNum += 2
 	}
 
 	// Build the full queries

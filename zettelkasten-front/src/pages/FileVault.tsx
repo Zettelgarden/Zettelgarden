@@ -11,6 +11,7 @@ import {
   deleteFile,
   editFile,
   uploadFile,
+  getFileTags,
 } from '../api/files';
 import { FileListItem } from '../components/files/FileListItem';
 import { FileUpload } from '../components/files/FileUpload';
@@ -20,7 +21,7 @@ import { MobileTopBar } from '../components/layout/MobileTopBar';
 import { useToast } from '../components/toast/ToastContext';
 import { Spinner } from '../components/ui/Spinner';
 
-import { File } from '../models/File';
+import { File, FileTag } from '../models/File';
 import { defaultCard, PartialCard } from '../models/Card';
 import { HeaderSection } from '../components/Header';
 import { setDocumentTitle } from '../utils/title';
@@ -36,6 +37,8 @@ export function FileVault() {
   const [filterString, setFilterString] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>(''); // Actual search term sent to API
   const [filetypeFilter, setFiletypeFilter] = useState<string>('');
+  const [tagFilter, setTagFilter] = useState<string>('');
+  const [fileTags, setFileTags] = useState<FileTag[]>([]);
   const [unlinkedOnly, setUnlinkedOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
@@ -105,7 +108,8 @@ export function FileVault() {
     maxStorage > 0 ? Math.min((storageUsed / maxStorage) * 100, 100) : 0;
 
   // Check if any filters are active
-  const hasActiveFilters = searchTerm || filetypeFilter || unlinkedOnly;
+  const hasActiveFilters =
+    searchTerm || filetypeFilter || tagFilter || unlinkedOnly;
 
   // Bulk selection helpers
   const isAllSelected =
@@ -497,6 +501,7 @@ export function FileVault() {
     unlinked: boolean = unlinkedOnly,
     sort: string = sortBy,
     order: string = sortOrder,
+    tag: string = tagFilter,
   ) => {
     setLoading(true);
     try {
@@ -508,6 +513,7 @@ export function FileVault() {
         unlinked,
         sort,
         order,
+        tag,
       );
       setFiles(data.files ?? []);
       setCurrentPage(data.page);
@@ -534,6 +540,11 @@ export function FileVault() {
     setCurrentPage(1);
   };
 
+  const handleTagChange = (tag: string) => {
+    setTagFilter(tag);
+    setCurrentPage(1);
+  };
+
   const handleSortChange = (newSortBy: string) => {
     if (sortBy === newSortBy) {
       // Toggle order if clicking same sort field
@@ -549,6 +560,7 @@ export function FileVault() {
     setFilterString('');
     setSearchTerm('');
     setFiletypeFilter('');
+    setTagFilter('');
     setUnlinkedOnly(false);
     setCurrentPage(1);
   };
@@ -580,6 +592,7 @@ export function FileVault() {
         unlinkedOnly,
         sortBy,
         sortOrder,
+        tagFilter,
       );
       setRefreshFiles(false);
     }
@@ -588,6 +601,7 @@ export function FileVault() {
     currentPage,
     searchTerm,
     filetypeFilter,
+    tagFilter,
     unlinkedOnly,
     sortBy,
     sortOrder,
@@ -595,6 +609,10 @@ export function FileVault() {
 
   useEffect(() => {
     setDocumentTitle('Files');
+    // Load the tag list once so the tag filter chips can be rendered.
+    getFileTags()
+      .then((tags) => setFileTags(tags))
+      .catch((error) => console.error('Error loading file tags:', error));
   }, []);
 
   // Single fetch effect keyed on every query input (72f.7): exactly one
@@ -607,11 +625,13 @@ export function FileVault() {
       unlinkedOnly,
       sortBy,
       sortOrder,
+      tagFilter,
     );
   }, [
     currentPage,
     searchTerm,
     filetypeFilter,
+    tagFilter,
     unlinkedOnly,
     sortBy,
     sortOrder,
@@ -841,6 +861,32 @@ export function FileVault() {
           >
             Unlinked Only
           </button>
+
+          {/* Tag filter chips (72f.8) */}
+          {fileTags.length > 0 && (
+            <>
+              <span className="px-1 text-xs text-gray-400">Tags:</span>
+              {fileTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  onClick={() =>
+                    handleTagChange(tagFilter === tag.name ? '' : tag.name)
+                  }
+                  title={`${tag.file_count ?? 0} file(s)`}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                    tagFilter === tag.name
+                      ? 'bg-purple-600 text-white border-purple-600'
+                      : 'bg-white text-gray-700 border-gray-300 hover:border-purple-400 hover:text-purple-600'
+                  }`}
+                >
+                  #{tag.name}
+                  {typeof tag.file_count === 'number' && (
+                    <span className="ml-1 opacity-70">({tag.file_count})</span>
+                  )}
+                </button>
+              ))}
+            </>
+          )}
 
           {/* Clear filters button */}
           {hasActiveFilters && (

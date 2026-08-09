@@ -17,9 +17,12 @@ vi.mock('../../api/files', () => ({
   downloadFile: vi.fn(),
   downloadThumbnail: vi.fn(),
   importEpub: vi.fn(),
+  getFileTags: vi.fn().mockResolvedValue([]),
 }));
 
-const { getAllFiles, deleteFile, renderFile } = await import('../../api/files');
+const { getAllFiles, deleteFile, renderFile, getFileTags } = await import(
+  '../../api/files'
+);
 
 const files: File[] = [
   {
@@ -151,6 +154,66 @@ describe('FileVault smoke', () => {
     // .md is not an image/PDF, so the download/render path is used
     await waitFor(() =>
       expect(renderFile).toHaveBeenCalledWith(1, 'zettelkasten-notes.md'),
+    );
+  });
+
+  it('renders tag chips and filters the list by tag', async () => {
+    vi.mocked(getAllFiles).mockResolvedValue({
+      files,
+      page: 1,
+      per_page: 20,
+      total: 1,
+      total_pages: 1,
+      storage_used: 2048,
+      max_storage: 104857600,
+    });
+    vi.mocked(getFileTags).mockResolvedValue([
+      { id: 1, user_id: 1, name: 'receipts', file_count: 2 },
+      { id: 2, user_id: 1, name: 'taxes', file_count: 1 },
+    ]);
+
+    renderWithProviders(<FileVault />);
+    await waitFor(() =>
+      expect(screen.getByText('zettelkasten-notes.md')).toBeInTheDocument(),
+    );
+
+    // Tag chips render with counts (normalize whitespace: textContent
+    // concatenates the name and count span without a space)
+    const chipText = (text: string) => (_, el: Element | null) =>
+      el?.textContent?.replace(/\s+/g, '') === text.replace(/\s+/g, '');
+    await waitFor(() => {
+      expect(screen.getByText(chipText('#receipts (2)'))).toBeInTheDocument();
+      expect(screen.getByText(chipText('#taxes (1)'))).toBeInTheDocument();
+    });
+
+    // Clicking a chip filters by that tag
+    fireEvent.click(screen.getByText('#receipts'));
+    await waitFor(() =>
+      expect(getAllFiles).toHaveBeenLastCalledWith(
+        1,
+        20,
+        '',
+        '',
+        false,
+        'date',
+        'desc',
+        'receipts',
+      ),
+    );
+
+    // Clicking again clears the tag filter
+    fireEvent.click(screen.getByText('#receipts'));
+    await waitFor(() =>
+      expect(getAllFiles).toHaveBeenLastCalledWith(
+        1,
+        20,
+        '',
+        '',
+        false,
+        'date',
+        'desc',
+        '',
+      ),
     );
   });
 });

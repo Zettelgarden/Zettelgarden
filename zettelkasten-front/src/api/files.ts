@@ -166,6 +166,7 @@ export function getAllFiles(
   unlinked?: boolean,
   sort?: string,
   order?: string,
+  tag?: string,
 ): Promise<FilesResponse> {
   const params: Record<string, string | number | undefined> = {
     page: page,
@@ -178,6 +179,10 @@ export function getAllFiles(
 
   if (filetype && filetype.trim()) {
     params.filetype = filetype.trim();
+  }
+
+  if (tag && tag.trim()) {
+    params.tag = tag.trim();
   }
 
   if (unlinked) {
