@@ -270,8 +270,21 @@ func run() error {
 	routes.RegisterAllRoutes(r, h, scheduler)
 	log.Printf("All routes registered successfully")
 
+	// CORS: the web SPA is served from cfg.Server.URL (same-origin), but the
+	// Tauri desktop shell fetches from a custom-scheme origin
+	// (tauri://localhost / http://tauri.localhost, constant across installs)
+	// and `tauri dev` serves the app from the Vite dev server. Without these
+	// origins the desktop app's every request is CORS-blocked (found by the
+	// Phase 2b E2E smoke, Zettelgarden-77j). Auth is a bearer token in the
+	// Authorization header (never cookies), so fixed-origin allowlisting is
+	// sufficient and keeps the API locked to known clients.
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{cfg.Server.URL},
+		AllowedOrigins: []string{
+			cfg.Server.URL,
+			"tauri://localhost",
+			"http://tauri.localhost",
+			"http://localhost:5173",
+		},
 		AllowCredentials: true,
 		AllowedHeaders:   []string{"authorization", "content-type"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
