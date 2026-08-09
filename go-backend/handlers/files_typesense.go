@@ -154,18 +154,60 @@ func (s *Handler) DeleteFileFromTypesense(ctx context.Context, fileID int) error
 }
 
 // searchFilesInTypesense searches files using Typesense
-func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query string, page, perPage int) (interface{}, error) {
+// searchFilesInTypesense searches files in Typesense and returns a response
+// shaped like the SQL path. When only a search term is present it uses
+// Typesense's native ranking + pagination and honors the sort/order params via
+// sort_by. When filetype/unlinked filters are active it collects the candidate
+// file IDs from Typesense and delegates the filtering, sorting, and pagination
+// to the shared SQL query path (Typesense has no LIKE/substring filter support).
+// Both shapes include storage_used + max_storage so the quota bar keeps working
+// (Zettelgarden-72f.3).
+func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query, filetypeFilter string, unlinkedOnly bool, sortBy, sortOrder string, page, perPage int) (interface{}, error) {
+	if s.Server.TypesenseClient == nil {
+		return nil, fmt.Errorf("Typesense client not initialized")
+	}
+
+	if filetypeFilter == "" && !unlinkedOnly {
+		return s.searchFilesInTypesenseNative(ctx, userID, query, sortBy, sortOrder, page, perPage)
+	}
+
+	// Filtered path: Typesense finds candidates, SQL applies filetype/unlinked
+	// filters + sort + pagination.
+	fileIDs, err := s.collectFileIDsFromTypesense(ctx, userID, query)
+	if err != nil {
+		return nil, err
+	}
+	files, total, storageUsed, maxStorage, err := s.runFileListQuery(fileListQuery{
+		UserID:         userID,
+		FileIDs:        fileIDs,
+		FiletypeFilter: filetypeFilter,
+		UnlinkedOnly:   unlinkedOnly,
+		SortBy:         sortBy,
+		SortOrder:      sortOrder,
+		Page:           page,
+		PerPage:        perPage,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return buildFileListResponse(files, total, page, perPage, query, storageUsed, maxStorage), nil
+}
+
+// searchFilesInTypesenseNative runs a plain Typesense search (no filetype or
+// unlinked filters), paginates natively, and enriches each hit with the fields
+// the frontend needs (filetype key, card, description, storage quota).
+func (s *Handler) searchFilesInTypesenseNative(ctx context.Context, userID int, query, sortBy, sortOrder string, page, perPage int) (interface{}, error) {
 	if s.Server.TypesenseClient == nil {
 		return nil, fmt.Errorf("Typesense client not initialized")
 	}
 
 	filterBy := fmt.Sprintf("user_id:%d", userID)
-	sortBy := "_text_match:desc,created_at:desc"
+	tsSortBy := buildTypesenseSortBy(sortBy, sortOrder)
 	searchParams := &api.SearchCollectionParams{
 		Q:        query,
 		QueryBy:  "name,description,extracted_text,tags",
 		FilterBy: &filterBy,
-		SortBy:   &sortBy,
+		SortBy:   &tsSortBy,
 		Page:     &page,
 		PerPage:  &perPage,
 	}
@@ -175,12 +217,13 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 		return nil, err
 	}
 
-	// Convert Typesense results to response format
+	// Convert Typesense results to response format. The JSON keys mirror
+	// models.File (filetype, card, description) so the frontend File type works.
 	type FileSearchResult struct {
 		ID            int                `json:"id"`
 		UserID        int                `json:"user_id"`
 		Name          string             `json:"name"`
-		Type          string             `json:"type"`
+		Filetype      string             `json:"filetype"`
 		Path          string             `json:"path"`
 		Filename      string             `json:"filename"`
 		Size          int                `json:"size"`
@@ -200,20 +243,14 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 		for _, hit := range *result.Hits {
 			doc := *hit.Document
 
-			var fileID int
-			switch v := doc["file_id"].(type) {
-			case float64:
-				fileID = int(v)
-			case int32:
-				fileID = int(v)
-			}
+			fileID, _ := fileIDFromDocument(doc)
 
-			var userID int
+			var hitUserID int
 			switch v := doc["user_id"].(type) {
 			case float64:
-				userID = int(v)
+				hitUserID = int(v)
 			case int32:
-				userID = int(v)
+				hitUserID = int(v)
 			}
 
 			var size int
@@ -246,9 +283,9 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 
 			file := FileSearchResult{
 				ID:        fileID,
-				UserID:    userID,
+				UserID:    hitUserID,
 				Name:      name,
-				Type:      contentType,
+				Filetype:  contentType,
 				Size:      size,
 				CreatedAt: time.Unix(createdAt, 0).Format(time.RFC3339),
 				Tags:      tags,
@@ -299,13 +336,102 @@ func (s *Handler) searchFilesInTypesense(ctx context.Context, userID int, query 
 		total = *result.Found
 	}
 
+	storageUsed, maxStorage := s.getStorageInfo(userID)
+
 	totalPages := (total + perPage - 1) / perPage
 
 	return map[string]interface{}{
-		"files":       files,
-		"page":        page,
-		"per_page":    perPage,
-		"total":       total,
-		"total_pages": totalPages,
+		"files":        files,
+		"page":         page,
+		"per_page":     perPage,
+		"total":        total,
+		"total_pages":  totalPages,
+		"search":       query,
+		"storage_used": storageUsed,
+		"max_storage":  maxStorage,
 	}, nil
+}
+
+// collectFileIDsFromTypesense walks all result pages of a Typesense search and
+// returns the matching file IDs (bounded to keep the IN clause + latency sane).
+func (s *Handler) collectFileIDsFromTypesense(ctx context.Context, userID int, query string) ([]int, error) {
+	if s.Server.TypesenseClient == nil {
+		return nil, fmt.Errorf("Typesense client not initialized")
+	}
+
+	filterBy := fmt.Sprintf("user_id:%d", userID)
+	sortBy := "_text_match:desc"
+	fileIDs := []int{}
+	const (
+		perPage       = 250
+		maxCandidates = 2000
+	)
+	page := 1
+	for {
+		includeFields := "file_id"
+		searchParams := &api.SearchCollectionParams{
+			Q:             query,
+			QueryBy:       "name,description,extracted_text,tags",
+			FilterBy:      &filterBy,
+			SortBy:        &sortBy,
+			Page:          &page,
+			PerPage:       pointer.Int(perPage),
+			IncludeFields: &includeFields,
+		}
+		result, err := s.Server.TypesenseClient.Collection("files").Documents().Search(ctx, searchParams)
+		if err != nil {
+			return nil, err
+		}
+		if result.Hits != nil {
+			for _, hit := range *result.Hits {
+				if id, ok := fileIDFromDocument(*hit.Document); ok {
+					fileIDs = append(fileIDs, id)
+				}
+			}
+		}
+		found := 0
+		if result.Found != nil {
+			found = *result.Found
+		}
+		if len(fileIDs) >= found || len(fileIDs) >= maxCandidates {
+			break
+		}
+		page++
+	}
+	return fileIDs, nil
+}
+
+// fileIDFromDocument extracts the numeric file_id from a Typesense hit document.
+func fileIDFromDocument(doc map[string]interface{}) (int, bool) {
+	switch v := doc["file_id"].(type) {
+	case float64:
+		return int(v), true
+	case int32:
+		return int(v), true
+	}
+	return 0, false
+}
+
+// buildTypesenseSortBy maps the UI sort/order params onto a Typesense sort_by
+// string. The default (date) keeps relevance ranking first with recency as the
+// tiebreaker, matching the pre-existing plain-search behavior.
+func buildTypesenseSortBy(sortBy, sortOrder string) string {
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+	switch sortBy {
+	case "name":
+		return "name:" + sortOrder + ",created_at:" + sortOrder
+	case "size":
+		return "size:" + sortOrder
+	case "type":
+		return "content_type:" + sortOrder + ",created_at:" + sortOrder
+	case "card":
+		return "card_pk:" + sortOrder + ",created_at:" + sortOrder
+	default: // "date"
+		if sortOrder == "asc" {
+			return "created_at:asc"
+		}
+		return "_text_match:desc,created_at:desc"
+	}
 }

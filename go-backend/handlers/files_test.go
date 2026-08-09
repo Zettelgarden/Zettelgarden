@@ -727,3 +727,153 @@ func TestDeleteFile(t *testing.T) {
 		t.Errorf("file_count after delete = %d, want 0 (decrement on soft-delete)", after)
 	}
 }
+
+// TestRunFileListQueryWithCandidateIDs covers the Typesense-filtered path
+// (Zettelgarden-72f.3): a candidate ID set from Typesense is narrowed by the
+// shared SQL query without needing a live Typesense instance.
+func TestRunFileListQueryWithCandidateIDs(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	files, total, storageUsed, maxStorage, err := s.runFileListQuery(fileListQuery{
+		UserID:    1,
+		FileIDs:   []int{2, 1},
+		SortBy:    "name",
+		SortOrder: "asc",
+		Page:      1,
+		PerPage:   20,
+	})
+	if err != nil {
+		t.Fatalf("runFileListQuery returned error: %v", err)
+	}
+	if total != 2 {
+		t.Errorf("total = %d, want 2", total)
+	}
+	if len(files) != 2 {
+		t.Fatalf("len(files) = %d, want 2", len(files))
+	}
+	seen := map[int]bool{}
+	for _, f := range files {
+		seen[f.ID] = true
+		// Description + card are populated like the plain SQL path
+		if f.Card.ID == 0 {
+			t.Errorf("file %d card not populated", f.ID)
+		}
+	}
+	if !seen[1] || !seen[2] {
+		t.Errorf("expected files 1 and 2, got %v", seen)
+	}
+	if storageUsed <= 0 {
+		t.Errorf("storage_used = %d, want > 0", storageUsed)
+	}
+	if maxStorage <= 0 {
+		t.Errorf("max_storage = %d, want > 0", maxStorage)
+	}
+}
+
+// TestRunFileListQueryEmptyCandidates guards the empty-set short circuit: a
+// Typesense search with no hits must return an empty array (not null) with a
+// computed quota.
+func TestRunFileListQueryEmptyCandidates(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	files, total, storageUsed, maxStorage, err := s.runFileListQuery(fileListQuery{
+		UserID:    1,
+		FileIDs:   []int{},
+		SortBy:    "date",
+		SortOrder: "desc",
+		Page:      1,
+		PerPage:   20,
+	})
+	if err != nil {
+		t.Fatalf("runFileListQuery returned error: %v", err)
+	}
+	if files == nil {
+		t.Errorf("files must be an empty array, got nil")
+	}
+	if len(files) != 0 || total != 0 {
+		t.Errorf("expected 0 files/0 total, got %d/%d", len(files), total)
+	}
+	if maxStorage <= 0 {
+		t.Errorf("max_storage = %d, want > 0 (quota must survive an empty search)", maxStorage)
+	}
+	if storageUsed <= 0 {
+		t.Errorf("storage_used = %d, want > 0", storageUsed)
+	}
+}
+
+// TestGetAllFilesUnlinkedFilter checks the SQL path honors the unlinked param.
+func TestGetAllFilesUnlinkedFilter(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Fixture files all have card_pk 1..5; unlink file 5.
+	_, err := s.GetDB().Exec("UPDATE files SET card_pk = -1 WHERE id = 5")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/files?unlinked=true", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetAllFilesRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	var response struct {
+		Files []models.File `json:"files"`
+		Total int           `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if response.Total != 1 {
+		t.Errorf("total = %d, want 1", response.Total)
+	}
+	if len(response.Files) != 1 || response.Files[0].ID != 5 {
+		t.Errorf("expected only file 5, got %+v", response.Files)
+	}
+}
+
+// TestGetAllFilesFiletypeFilter checks the SQL path honors the filetype param.
+func TestGetAllFilesFiletypeFilter(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	_, err := s.GetDB().Exec("UPDATE files SET type = 'application/pdf' WHERE id = 3")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/files?filetype=pdf", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(s.JwtMiddleware(s.GetAllFilesRoute))
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+	var response struct {
+		Files []models.File `json:"files"`
+		Total int           `json:"total"`
+	}
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &response)
+	if response.Total != 1 {
+		t.Errorf("total = %d, want 1", response.Total)
+	}
+	if len(response.Files) != 1 || response.Files[0].ID != 3 {
+		t.Errorf("expected only file 3, got %+v", response.Files)
+	}
+}

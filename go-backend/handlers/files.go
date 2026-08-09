@@ -153,6 +153,125 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		sortOrder = "desc"
 	}
 
+	var response interface{}
+
+	if searchTerm != "" && s.Server.TypesenseClient != nil {
+		// Typesense semantic search. The Typesense path honors the filetype /
+		// unlinked / sort / order params and returns storage_used + max_storage
+		// just like the SQL path (Zettelgarden-72f.3). On failure we fall back
+		// to the SQL search below.
+		if result, err := s.searchFilesInTypesense(r.Context(), userID, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder, page, perPage); err == nil && result != nil {
+			response = result
+		} else {
+			if err != nil {
+				log.Printf("Typesense search failed, falling back to SQL: %v", err)
+			}
+			files, total, storageUsed, maxStorage, qErr := s.runFileListQuery(fileListQuery{
+				UserID:         userID,
+				SearchPattern:  "%" + searchTerm + "%",
+				FiletypeFilter: filetypeFilter,
+				UnlinkedOnly:   unlinkedOnly,
+				SortBy:         sortBy,
+				SortOrder:      sortOrder,
+				Page:           page,
+				PerPage:        perPage,
+			})
+			if qErr != nil {
+				http.Error(w, qErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			response = buildFileListResponse(files, total, page, perPage, searchTerm, storageUsed, maxStorage)
+		}
+	} else {
+		// SQL path (no search term, or Typesense unavailable)
+		q := fileListQuery{
+			UserID:         userID,
+			FiletypeFilter: filetypeFilter,
+			UnlinkedOnly:   unlinkedOnly,
+			SortBy:         sortBy,
+			SortOrder:      sortOrder,
+			Page:           page,
+			PerPage:        perPage,
+		}
+		if searchTerm != "" {
+			q.SearchPattern = "%" + searchTerm + "%"
+		}
+		files, total, storageUsed, maxStorage, err := s.runFileListQuery(q)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response = buildFileListResponse(files, total, page, perPage, searchTerm, storageUsed, maxStorage)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+type fileListQuery struct {
+	UserID         int
+	SearchPattern  string // SQL LIKE pattern from the fallback search ("" = none)
+	FileIDs        []int  // optional exact ID set (Typesense candidates); takes precedence over SearchPattern
+	FiletypeFilter string
+	UnlinkedOnly   bool
+	SortBy         string
+	SortOrder      string
+	Page           int
+	PerPage        int
+}
+
+func buildFileListResponse(files []models.File, total, page, perPage int, searchTerm string, storageUsed, maxStorage int) map[string]interface{} {
+	return map[string]interface{}{
+		"files":        files,
+		"page":         page,
+		"per_page":     perPage,
+		"total":        total,
+		"total_pages":  (total + perPage - 1) / perPage,
+		"search":       searchTerm,
+		"storage_used": storageUsed,
+		"max_storage":  maxStorage,
+	}
+}
+
+// getStorageInfo returns the user's total uploaded bytes and their max storage
+// quota, degrading to zero on error (the route treats quota as best-effort).
+func (s *Handler) getStorageInfo(userID int) (int, int) {
+	var storageUsed int
+	err := s.GetDB().QueryRow(`SELECT COALESCE(SUM(size), 0) FROM files WHERE is_deleted = FALSE AND created_by = $1`, userID).Scan(&storageUsed)
+	if err != nil {
+		log.Printf("Error calculating storage used: %v", err)
+		storageUsed = 0
+	}
+	var maxStorage int
+	err = s.GetDB().QueryRow(`SELECT max_file_storage FROM users WHERE id = $1`, userID).Scan(&maxStorage)
+	if err != nil {
+		log.Printf("Error getting max storage: %v", err)
+		maxStorage = 0
+	}
+	return storageUsed, maxStorage
+}
+
+// runFileListQuery executes the shared files query with the given filters and
+// returns the page of files (with card + description populated), the total
+// count, the user's storage usage, and their max storage.
+func (s *Handler) runFileListQuery(q fileListQuery) ([]models.File, int, int, int, error) {
+	// A candidate set that came back empty (e.g. Typesense found no hits for
+	// the term) means zero results — short-circuit before building SQL.
+	if q.FileIDs != nil && len(q.FileIDs) == 0 {
+		storageUsed, maxStorage := s.getStorageInfo(q.UserID)
+		return []models.File{}, 0, storageUsed, maxStorage, nil
+	}
+
+	sortBy, sortOrder := q.SortBy, q.SortOrder
+	if sortBy == "" {
+		sortBy = "date"
+	}
+	if sortOrder == "" {
+		sortOrder = "desc"
+	}
+
 	// Build ORDER BY clause based on sort parameters
 	var orderByClause string
 	switch sortBy {
@@ -175,7 +294,8 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		orderByClause += " DESC"
 	}
 
-	// For name and type, add secondary sort by created_at for consistent ordering
+	// For name, type and card, add a secondary sort by created_at so ordering
+	// is deterministic when keys collide.
 	if sortBy == "name" || sortBy == "type" || sortBy == "card" {
 		if sortOrder == "asc" {
 			orderByClause += ", f.created_at ASC"
@@ -184,9 +304,9 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	offset := (page - 1) * perPage
+	offset := (q.Page - 1) * q.PerPage
 
-	// Build query with optional filters using a cleaner approach
+	// Build the query with optional filters
 	var whereConditions []string
 	var queryArgs []interface{}
 	var countArgs []interface{}
@@ -194,43 +314,40 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 	// Always filter by user and not deleted
 	whereConditions = append(whereConditions, "f.is_deleted = FALSE", "f.user_id = $"+strconv.Itoa(argNum))
-	queryArgs = append(queryArgs, userID)
-	countArgs = append(countArgs, userID)
+	queryArgs = append(queryArgs, q.UserID)
+	countArgs = append(countArgs, q.UserID)
 	argNum++
 
-	// Add search filter (searches in filename and type)
-	if searchTerm != "" {
-		// Try Typesense search first if available
-		if s.Server.TypesenseClient != nil {
-			files, err := s.searchFilesInTypesense(r.Context(), userID, searchTerm, page, perPage)
-			if err == nil && files != nil {
-				// Typesense search successful, return results
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(files)
-				return
-			}
-			log.Printf("Typesense search failed, falling back to PostgreSQL: %v", err)
+	// Exact candidate set (Typesense hits) or SQL LIKE search
+	if len(q.FileIDs) > 0 {
+		placeholders := make([]string, len(q.FileIDs))
+		idArgs := make([]interface{}, len(q.FileIDs))
+		for i, id := range q.FileIDs {
+			placeholders[i] = "$" + strconv.Itoa(argNum)
+			idArgs[i] = id
+			argNum++
 		}
-
-		// Fallback to PostgreSQL search
+		whereConditions = append(whereConditions, "f.id IN ("+strings.Join(placeholders, ",")+")")
+		queryArgs = append(queryArgs, idArgs...)
+		countArgs = append(countArgs, idArgs...)
+	} else if q.SearchPattern != "" {
 		whereConditions = append(whereConditions, "(f.name LIKE $"+strconv.Itoa(argNum)+" OR f.type LIKE $"+strconv.Itoa(argNum)+")")
-		searchPattern := "%" + searchTerm + "%"
-		queryArgs = append(queryArgs, searchPattern)
-		countArgs = append(countArgs, searchPattern)
+		queryArgs = append(queryArgs, q.SearchPattern)
+		countArgs = append(countArgs, q.SearchPattern)
 		argNum++
 	}
 
 	// Add filetype filter (searches in MIME type)
-	if filetypeFilter != "" {
+	if q.FiletypeFilter != "" {
 		whereConditions = append(whereConditions, "f.type LIKE $"+strconv.Itoa(argNum))
-		filetypePattern := "%" + filetypeFilter + "%"
+		filetypePattern := "%" + q.FiletypeFilter + "%"
 		queryArgs = append(queryArgs, filetypePattern)
 		countArgs = append(countArgs, filetypePattern)
 		argNum++
 	}
 
 	// Add unlinked filter (files not attached to any card)
-	if unlinkedOnly {
+	if q.UnlinkedOnly {
 		whereConditions = append(whereConditions, "(f.card_pk IS NULL OR f.card_pk <= 0)")
 	}
 
@@ -247,20 +364,18 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 
 	countQuery := `SELECT COUNT(*) FROM files f` + whereClause
 
-	queryArgs = append(queryArgs, perPage, offset)
+	queryArgs = append(queryArgs, q.PerPage, offset)
 
 	rows, err := s.GetDB().Query(query, queryArgs...)
 	if err != nil {
 		log.Printf("Error querying files: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, 0, 0, 0, err
 	}
 	defer rows.Close()
 
-	// First, buffer all files to avoid PostgreSQL protocol error
-	// (can't execute queries while iterating through a result set on same connection).
-	// Initialize as an empty slice (not nil) so the JSON response is `[]` rather
-	// than `null` when no files match — the frontend expects an array.
+	// Buffer all files first so we don't run queries (card lookups) on the same
+	// connection while the result set is open. Initialize as an empty slice (not
+	// nil) so the JSON response is `[]` rather than `null` when nothing matches.
 	files := []models.File{}
 	for rows.Next() {
 		var file models.File
@@ -284,8 +399,7 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 			&description,
 		); err != nil {
 			log.Printf("Error scanning file: %v", err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, 0, 0, 0, err
 		}
 		// Convert nullable cardPK
 		if cardPK.Valid {
@@ -301,14 +415,13 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, 0, 0, 0, err
 	}
 
 	// Now fetch cards for each file after closing the result set
 	for i := range files {
 		if files[i].CardPK != nil {
-			partialCard, err := s.QueryPartialCardByID(userID, *files[i].CardPK)
+			partialCard, err := s.QueryPartialCardByID(q.UserID, *files[i].CardPK)
 			if err != nil {
 				log.Printf("card %v", partialCard)
 				files[i].Card = models.PartialCard{}
@@ -325,44 +438,11 @@ func (s *Handler) GetAllFilesRoute(w http.ResponseWriter, r *http.Request) {
 	err = s.GetDB().QueryRow(countQuery, countArgs...).Scan(&total)
 	if err != nil {
 		log.Printf("Error counting files: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil, 0, 0, 0, err
 	}
 
-	// Get storage usage info
-	var storageUsed int
-	err = s.GetDB().QueryRow(`SELECT COALESCE(SUM(size), 0) FROM files WHERE is_deleted = FALSE AND created_by = $1`, userID).Scan(&storageUsed)
-	if err != nil {
-		log.Printf("Error calculating storage used: %v", err)
-		// Don't fail the request, just set to 0
-		storageUsed = 0
-	}
-
-	// Get user's max storage
-	var maxStorage int
-	err = s.GetDB().QueryRow(`SELECT max_file_storage FROM users WHERE id = $1`, userID).Scan(&maxStorage)
-	if err != nil {
-		log.Printf("Error getting max storage: %v", err)
-		// Don't fail the request, just set to 0
-		maxStorage = 0
-	}
-
-	// Prepare response
-	response := map[string]interface{}{
-		"files":        files,
-		"page":         page,
-		"per_page":     perPage,
-		"total":        total,
-		"total_pages":  (total + perPage - 1) / perPage,
-		"search":       searchTerm,
-		"storage_used": storageUsed,
-		"max_storage":  maxStorage,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	storageUsed, maxStorage := s.getStorageInfo(q.UserID)
+	return files, total, storageUsed, maxStorage, nil
 }
 
 func (s *Handler) queryFile(userID int, id int) (models.File, error) {
