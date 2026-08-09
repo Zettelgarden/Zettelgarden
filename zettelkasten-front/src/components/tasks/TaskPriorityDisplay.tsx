@@ -1,6 +1,5 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { Task } from '../../models/Task';
-import { useTaskDropdown } from '../../hooks/useTaskDropdown';
 import { useOptimisticTaskUpdate } from '../../hooks/useOptimisticTaskUpdate';
 import { TaskDropdown } from './TaskDropdown';
 
@@ -22,14 +21,12 @@ export function TaskPriorityDisplay({
   setTask,
   saveOnChange,
 }: TaskPriorityDisplayProps) {
-  const dropdown = useTaskDropdown();
   const { updateTask } = useOptimisticTaskUpdate({
     task,
     setTask,
     saveOnChange,
     errorMessagePrefix: 'Failed to update task priority',
   });
-  const triggerRef = useRef<HTMLSpanElement>(null);
 
   // Get display text and color based on priority
   const priorityDisplay = React.useMemo(() => {
@@ -43,32 +40,29 @@ export function TaskPriorityDisplay({
     );
   }, [task.priority]);
 
-  async function setPriority(priority: string | null) {
+  async function setPriority(priority: string | null, close: () => void) {
     const editedTask = { ...task, priority };
     await updateTask(editedTask);
-    dropdown.close();
+    close();
   }
 
   return (
-    <TaskDropdown
-      isOpen={dropdown.isOpen}
-      onToggle={dropdown.toggle}
-      onClose={dropdown.close}
-      display={priorityDisplay}
-      triggerRef={triggerRef}
-      usePortal={true}
-    >
-      {PRIORITIES.map((priority) => (
-        <div
-          key={priority.value ?? 'none'}
-          className="px-2 py-1 min-h-[26px] hover:bg-gray-100 cursor-pointer flex items-center gap-1.5 text-xs whitespace-nowrap"
-          onClick={() => setPriority(priority.value)}
-          style={{ color: priority.color }}
-        >
-          <span>{priority.icon}</span>
-          <span>{priority.text}</span>
-        </div>
-      ))}
+    <TaskDropdown display={priorityDisplay}>
+      {({ close }) => (
+        <>
+          {PRIORITIES.map((priority) => (
+            <div
+              key={priority.value ?? 'none'}
+              className="px-2 py-1 min-h-[26px] hover:bg-gray-100 cursor-pointer flex items-center gap-1.5 text-xs whitespace-nowrap"
+              onClick={() => setPriority(priority.value, close)}
+              style={{ color: priority.color }}
+            >
+              <span>{priority.icon}</span>
+              <span>{priority.text}</span>
+            </div>
+          ))}
+        </>
+      )}
     </TaskDropdown>
   );
 }
