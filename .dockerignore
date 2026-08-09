@@ -1,0 +1,11 @@
+# Repo-root build context (frontend Docker build pulls the sync engine by
+# path). Never ship host node_modules / build output / VCS into the image —
+# host node_modules may contain platform-mismatched native deps.
+.git
+**/node_modules
+**/dist
+**/target
+**/.cache
+**/*.log
+.env
+.beads

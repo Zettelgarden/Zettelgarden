@@ -47,7 +47,8 @@ pub fn init(app: &AppHandle) -> Result<SyncDb, String> {
 }
 
 /// The sync commands only serve the bundled app origin (same policy as the
-/// keychain commands in commands.rs).
+/// keychain commands in commands.rs): the app bundle (tauri://localhost) and
+/// the local dev server (http://localhost).
 fn trusted_origin(window: &tauri::WebviewWindow) -> bool {
     let Ok(url) = window.url() else {
         return false;
@@ -128,8 +129,12 @@ pub fn sync_commit(window: tauri::WebviewWindow, db: State<'_, SyncDb>) -> Resul
         return Err("sync_commit: no open transaction".to_string());
     }
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    conn.execute_batch("COMMIT")
-        .map_err(|e| format!("sync_commit: {e}"))?;
+    conn.execute_batch("COMMIT").map_err(|e| {
+        // Leave in_tx clear: the transaction state on the connection is now
+        // undefined, and sync_begin's self-heal rollback will tidy it.
+        *in_tx = false;
+        format!("sync_commit: {e}")
+    })?;
     *in_tx = false;
     Ok(())
 }
@@ -144,14 +149,21 @@ pub fn sync_rollback(window: tauri::WebviewWindow, db: State<'_, SyncDb>) -> Res
         return Err("sync_rollback: no open transaction".to_string());
     }
     let conn = db.conn.lock().map_err(|e| e.to_string())?;
-    conn.execute_batch("ROLLBACK")
-        .map_err(|e| format!("sync_rollback: {e}"))?;
+    conn.execute_batch("ROLLBACK").map_err(|e| {
+        *in_tx = false;
+        format!("sync_rollback: {e}")
+    })?;
     *in_tx = false;
     Ok(())
 }
 
 /// Execute one statement (INSERT/UPDATE/DELETE/DDL). Params are positional
 /// and MUST be numbered (`?1`, `?2`, …) — rusqlite has no anonymous `?`.
+///
+/// ONE statement only: rusqlite's `prepare` compiles just the first statement
+/// and silently ignores any tail (no error without the extra_check feature),
+/// so callers must split multi-statement SQL (e.g. migrations) into one
+/// sync_exec per statement — see the migration test below.
 #[tauri::command]
 pub fn sync_exec(
     window: tauri::WebviewWindow,
@@ -250,6 +262,41 @@ mod tests {
         assert_eq!(rows[0]["n"], json!(7));
         assert_eq!(rows[0]["f"], json!(3.5));
         assert_eq!(rows[0]["flag"], json!(1));
+    }
+
+    #[test]
+    fn sync_exec_runs_only_the_first_statement_of_multi_statement_sql() {
+        // rusqlite's prepare() compiles just the first statement; without the
+        // extra_check feature the tail is silently ignored. sync_exec MUST
+        // therefore be called once per statement (the TS adapter's migrate()
+        // splits its CREATEs). This test pins the contract so a future
+        // multi-statement call through sync_exec can't silently half-apply.
+        let db = mem_db();
+        {
+            let conn = db.conn.lock().unwrap();
+            conn.execute_batch("CREATE TABLE a (id INTEGER PRIMARY KEY)")
+                .unwrap();
+        }
+        let _ = {
+            let conn = db.conn.lock().unwrap();
+            let mut stmt = conn
+                .prepare("INSERT INTO a (id) VALUES (1); INSERT INTO a (id) VALUES (2)")
+                .unwrap();
+            stmt.execute(rusqlite::params![]).unwrap();
+        };
+        let rows: Vec<Value> = {
+            let conn = db.conn.lock().unwrap();
+            let mut stmt = conn.prepare("SELECT id FROM a").unwrap();
+            stmt.query_map([], |r| row_to_json(r))
+                .unwrap()
+                .collect::<Result<Vec<_>, _>>()
+                .unwrap()
+        };
+        assert_eq!(
+            rows.len(),
+            1,
+            "tail statement must NOT execute through sync_exec-style prepare"
+        );
     }
 
     #[test]

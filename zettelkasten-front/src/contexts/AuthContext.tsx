@@ -14,6 +14,7 @@ import { getBillingStatus } from '../api/billing';
 import { getCurrentUser } from '../api/users';
 import { LoginResponse } from '../models/Auth';
 import { User, UserSubscription, defaultUser } from '../models/User';
+import { isAuthError } from '../api/errors';
 import { isDesktopApp } from '../data/tauriStorageAdapter';
 
 // Last-known profile cache so the desktop app can open instantly offline
@@ -77,6 +78,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const initializeAuth = async () => {
       setIsLoading(true);
+      // Desktop: the keychain-backed localStorage shim primes asynchronously
+      // (keychain IPC). Await it so the token read below can't miss a valid
+      // keychain token on a slow/locked keychain and boot logged-out.
+      if (isDesktopApp()) {
+        const zg = (window as any).zgDesktop as
+          | { ready?: Promise<unknown> }
+          | undefined;
+        await zg?.ready?.catch(() => undefined);
+      }
       const token = localStorage.getItem('token');
       if (token) {
         try {
@@ -101,12 +111,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         } catch (error) {
           console.error('Failed to initialize auth:', error);
-          if (isDesktopApp()) {
-            // Offline startup: keep the keychain session and restore the
-            // last-known profile so the app opens into its data (the local
-            // mirror serves cards/tasks/tags). Subscription status is
-            // unknown until online — default to subscribed so the self-hosted
-            // offline app never dead-ends on a paywall.
+          if (isDesktopApp() && !isAuthError(error)) {
+            // Offline startup (NOT a bad token): keep the keychain session
+            // and restore the last-known profile so the app opens into its
+            // data (the local mirror serves cards/tasks/tags). Subscription
+            // status is unknown until online — default to subscribed so the
+            // self-hosted offline app never dead-ends on a paywall.
             const cached = restoreUserProfile();
             if (cached) {
               setCurrentUser(cached);
@@ -119,6 +129,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               setHasSubscription(true);
             }
           } else {
+            // Expired/revoked token (or web app): force re-login rather than
+            // pretending to be offline — a 401 would otherwise show a green
+            // "Synced" indicator while every push fails and the outbox grows.
             logoutUser();
           }
         }
@@ -203,6 +216,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const logoutUser = () => {
     localStorage.removeItem('token');
+    // The profile cache is not a secret, but it is account-scoped — don't
+    // let a stale cross-account profile survive logout.
+    localStorage.removeItem(USER_PROFILE_KEY);
     setIsAuthenticated(false);
     setIsAdmin(false); // Reset admin status on logout
   };

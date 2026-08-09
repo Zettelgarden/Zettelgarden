@@ -504,6 +504,51 @@ describe('SyncEngine', () => {
     expect((await storage.getRow('cards', 'p1'))?.data.id).toBeGreaterThan(0);
   });
 
+  it('edit during an in-flight push is not silently dropped (coalesce race)', async () => {
+    const server = new MockServer();
+    const { engine, storage } = makeEngine(server, 'dev-a');
+    await engine.bootstrap();
+    await engine.mutate('cards', { rowUuid: 'r1', data: cardData('v1') });
+
+    // Transport that holds the push open so the test can edit mid-flight.
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let pushed: any = null;
+    const gatedTransport = {
+      snapshot: (c: Collection[]) => server.snapshot(c),
+      changes: (s: number) => server.changes(s),
+      push: async (req: any) => {
+        pushed = JSON.parse(JSON.stringify(req));
+        await gate;
+        return server.push(req);
+      },
+    };
+    const g = new SyncEngine({ storage, transport: gatedTransport, deviceId: 'dev-a' });
+    const inFlight = g.sync();
+    await vi.waitFor(() => expect(pushed).not.toBeNull());
+
+    // The user edits the SAME row while the push round trip is open: the
+    // outbox coalesces newer data into the entry being pushed.
+    await g.mutate('cards', { rowUuid: 'r1', data: cardData('v2 edited') });
+    release();
+    await inFlight;
+
+    // The newer edit must NOT have been dropped with the old entry: the next
+    // sync re-pushes it and the server reconciles (counted lost edit under
+    // v1 LWW, never silent loss).
+    const summary = await g.sync();
+    expect(await g.pendingChanges()).toBe(0);
+    const serverRow = (await server.snapshot(['cards'])).collections.cards!.find(
+      (r) => r.row_uuid === 'r1',
+    )!;
+    // The mirror converges to the server row (no divergence), and the raced
+    // edit was surfaced, not silently dropped.
+    const mirror = (await storage.getRow('cards', 'r1'))!;
+    expect(mirror.data.title).toBe(serverRow.data?.title);
+    expect(mirror.version).toBe(serverRow.version);
+    expect(summary.conflicts + summary.lostEdits).toBeGreaterThanOrEqual(1);
+  });
+
   it('cursor-0 pull auto-bootstraps (never-bootstrapped device)', async () => {
     const server = new MockServer();
     server.seed('cards', 'c1', cardData('seeded'));

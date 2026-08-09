@@ -44,6 +44,7 @@ export class TauriStorageAdapter implements StorageAdapter {
    * between calls, so BEGIN…body…COMMIT must not interleave with another
    * transaction's BEGIN). */
   private txQueue: Promise<void> = Promise.resolve();
+  private inTransaction = false;
 
   constructor() {
     this.ready = this.migrate();
@@ -51,28 +52,34 @@ export class TauriStorageAdapter implements StorageAdapter {
 
   private async migrate(): Promise<void> {
     await tauriInvoke('sync_ping');
+    // sync_exec compiles ONLY the first statement (rusqlite ignores the tail
+    // without the extra_check feature), so each CREATE must be its own call.
     await tauriInvoke('sync_exec', {
-      sql: `
-        CREATE TABLE IF NOT EXISTS sync_meta (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS mirror_rows (
-          collection TEXT NOT NULL,
-          row_uuid TEXT NOT NULL,
-          version INTEGER NOT NULL,
-          data TEXT NOT NULL,
-          PRIMARY KEY (collection, row_uuid)
-        );
-        CREATE TABLE IF NOT EXISTS sync_outbox (
-          collection TEXT NOT NULL,
-          row_uuid TEXT NOT NULL,
-          op TEXT NOT NULL,
-          base_version INTEGER NOT NULL,
-          data TEXT,
-          seq INTEGER PRIMARY KEY AUTOINCREMENT
-        );
-      `,
+      sql: `CREATE TABLE IF NOT EXISTS sync_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )`,
+      params: [],
+    });
+    await tauriInvoke('sync_exec', {
+      sql: `CREATE TABLE IF NOT EXISTS mirror_rows (
+        collection TEXT NOT NULL,
+        row_uuid TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        PRIMARY KEY (collection, row_uuid)
+      )`,
+      params: [],
+    });
+    await tauriInvoke('sync_exec', {
+      sql: `CREATE TABLE IF NOT EXISTS sync_outbox (
+        collection TEXT NOT NULL,
+        row_uuid TEXT NOT NULL,
+        op TEXT NOT NULL,
+        base_version INTEGER NOT NULL,
+        data TEXT,
+        seq INTEGER PRIMARY KEY AUTOINCREMENT
+      )`,
       params: [],
     });
   }
@@ -101,10 +108,14 @@ export class TauriStorageAdapter implements StorageAdapter {
   }
 
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.inTransaction) {
+      throw new Error('TauriStorageAdapter.transaction is not reentrant');
+    }
     const prev = this.txQueue;
     let release!: () => void;
     this.txQueue = new Promise((r) => (release = r));
     await prev;
+    this.inTransaction = true;
     try {
       await tauriInvoke('sync_begin');
       try {
@@ -116,6 +127,7 @@ export class TauriStorageAdapter implements StorageAdapter {
         throw err;
       }
     } finally {
+      this.inTransaction = false;
       release();
     }
   }

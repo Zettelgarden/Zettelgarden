@@ -492,8 +492,10 @@ func (c *pushContext) ensureSelfParent(collection string, id int, cardID string)
 func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	var data models.SyncCardData
 	if err := json.Unmarshal(ch.Data, &data); err != nil {
-		c.ignored(ch)
-		return nil
+		// A malformed payload is a client bug, not a no-op: hard-error so the
+		// batch rolls back, the client keeps the outbox entry, and the failure
+		// surfaces instead of silently dropping the edit.
+		return fmt.Errorf("sync push card upsert (uuid=%s): malformed payload: %w", ch.RowUUID, err)
 	}
 	// Match UpdateCard: strip all whitespace from card_id before proceeding.
 	data.CardID = normalizeCardID(data.CardID)
@@ -669,8 +671,7 @@ func (c *pushContext) finishCardWrite(id int) {
 func (c *pushContext) applyTaskUpsert(ch models.SyncChange) error {
 	var data models.SyncTaskData
 	if err := json.Unmarshal(ch.Data, &data); err != nil {
-		c.ignored(ch)
-		return nil
+		return fmt.Errorf("sync push task upsert (uuid=%s): malformed payload: %w", ch.RowUUID, err)
 	}
 	cardPK, parentTaskID := c.resolveTaskFKs(&data)
 
@@ -798,8 +799,7 @@ func (c *pushContext) resolveTaskFKs(data *models.SyncTaskData) (cardPK int, par
 func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	var data models.SyncTagData
 	if err := json.Unmarshal(ch.Data, &data); err != nil {
-		c.ignored(ch)
-		return nil
+		return fmt.Errorf("sync push tag upsert (uuid=%s): malformed payload: %w", ch.RowUUID, err)
 	}
 	var id, version int
 	var existingUUID string

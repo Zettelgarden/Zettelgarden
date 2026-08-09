@@ -27,7 +27,10 @@ export interface SyncClient {
   subscribe(cb: () => void): () => void;
 }
 
-/** Resolves the API base URL: desktop settings -> build-time VITE_URL. */
+/** Resolves the API base URL: desktop settings -> build-time VITE_URL.
+ * Never falls back to the webview origin — in the bundled app that is
+ * tauri://localhost, which fetch() cannot reach (a desktop build with no
+ * configured server would otherwise silently never sync). */
 export async function resolveBaseUrl(): Promise<string> {
   try {
     const settings = await tauriInvoke<{ serverUrl?: string }>('load_settings');
@@ -37,7 +40,9 @@ export async function resolveBaseUrl(): Promise<string> {
   }
   const viteUrl = (import.meta as any).env?.VITE_URL as string | undefined;
   if (viteUrl) return viteUrl;
-  return window.location.origin;
+  throw new Error(
+    'no server URL configured: set VITE_URL at build time or configure the server in the desktop app settings',
+  );
 }
 
 let client: SyncClient | null = null;

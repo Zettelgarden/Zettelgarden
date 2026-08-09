@@ -326,9 +326,12 @@ export class SyncDataProvider implements DataProvider {
     if (!row) throw new Error('card not found');
     if (row.data.is_deleted) throw new Error('card not found');
     const card = await this.cardFromRow(row);
-    // Enrich tasks from the mirror.
+    // Enrich tasks from the mirror. Offline-created tasks reference the card
+    // by card_pk_uuid (never card_pk — no server PK yet), so match both.
     const taskRows = (await this.engine.query('tasks')).filter(
-      (r) => Number(r.data.card_pk) === card.id,
+      (r) =>
+        Number(r.data.card_pk) === card.id ||
+        r.data.card_pk_uuid === row.rowUuid,
     );
     card.tasks = await Promise.all(taskRows.map((r) => this.taskFromRow(r)));
     return card;
@@ -393,7 +396,7 @@ export class SyncDataProvider implements DataProvider {
     if (!uuid) return [];
     const id = await this.canonicalId('cards', uuid);
     const rows = (await this.engine.query('tasks')).filter(
-      (r) => Number(r.data.card_pk) === id,
+      (r) => Number(r.data.card_pk) === id || r.data.card_pk_uuid === uuid,
     );
     return Promise.all(rows.map((r) => this.taskFromRow(r)));
   }

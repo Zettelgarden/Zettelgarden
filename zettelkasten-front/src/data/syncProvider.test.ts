@@ -191,6 +191,24 @@ describe('SyncDataProvider (offline data layer)', () => {
     expect(row!.data.title).toBe('offline task');
   });
 
+  it('offline task appears on its offline card via card_pk_uuid', async () => {
+    const { provider } = makeProvider();
+    const card = await provider.saveNewCard(cardData() as any);
+    await provider.saveNewTask({
+      ...emptyTask,
+      title: 'offline task on offline card',
+      card_pk: card.id as number,
+    } as any);
+
+    const loaded = await provider.getCard(String(card.id));
+    expect(loaded.tasks).toHaveLength(1);
+    expect(loaded.tasks[0].title).toBe('offline task on offline card');
+    const tasks = await provider.getCardTasks(String(card.id));
+    expect(tasks.map((t: any) => t.title)).toEqual([
+      'offline task on offline card',
+    ]);
+  });
+
   it('fetchTasks filters the mirror offline', async () => {
     const { provider, engine } = makeProvider();
     const t1 = await provider.saveNewTask({

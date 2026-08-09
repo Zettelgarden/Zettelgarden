@@ -326,7 +326,24 @@ export class SyncEngine {
     });
 
     await this.storage.transaction(async () => {
+      const currentOutbox = await this.storage.outbox();
       for (const result of resp.results) {
+        // Mid-push coalesce race: if the user edited this row while the push
+        // was in flight, enqueue coalesced NEWER data into the same entry. The
+        // server just applied the OLD payload, so dropping the entry now would
+        // let the next pull overwrite the newer edit with the server's older
+        // row — silent data loss. Leave changed entries queued: the next push
+        // sends the newer data and LWW surfaces it as a counted conflict.
+        const pushed = outbox.find((e) => e.rowUuid === result.rowUuid);
+        const current = currentOutbox.find((e) => e.rowUuid === result.rowUuid);
+        const unchanged =
+          !!pushed &&
+          !!current &&
+          current.op === pushed.op &&
+          current.baseVersion === pushed.baseVersion &&
+          JSON.stringify(current.data ?? null) ===
+            JSON.stringify(pushed.data ?? null);
+        if (!unchanged) continue;
         await this.storage.dropOutbox(result.rowUuid);
         await this.reconcilePushResult(outbox, result);
       }
@@ -427,7 +444,13 @@ export class SyncEngine {
 
   private async emitProgress(): Promise<void> {
     const progress: SyncProgress = {
-      state: this.syncing ? 'syncing' : this.online ? 'idle' : 'offline',
+      state: this.syncing
+        ? 'syncing'
+        : !this.online
+          ? 'offline'
+          : this.lastError
+            ? 'error'
+            : 'idle',
       lastSynced: this.lastSynced,
       pendingChanges: await this.pendingChanges(),
       lastError: this.lastError,
