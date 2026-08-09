@@ -764,13 +764,16 @@ func CompleteAndScheduleTask(db models.Database, userID int, id int, days int, c
 
 	// Now update the original task to be complete
 	// Pass checkRecurring=false to prevent creating duplicate recurring tasks
-	// since we already created a new task above
+	// since we already created a new task above.
+	// The error is PROPAGATED (not swallowed): the caller's transaction rolls
+	// both the new task and this completion back together, so a failed
+	// sync_log emit can never leave the is_complete update committed but
+	// invisible to sync (bead Zettelgarden-5ry). A client retry then
+	// re-creates the task exactly once — the atomicity contract.
 	oldTask.IsComplete = true
 	oldTask.Status = completeStatusName
-	_, err = UpdateTaskWithRecurring(db, userID, id, oldTask, false)
-	if err != nil {
-		log.Printf("Warning: completed task creation but failed to mark original task as complete: %v", err)
-		// Don't return error here since we successfully created the new task
+	if _, err := UpdateTaskWithRecurring(db, userID, id, oldTask, false); err != nil {
+		return 0, fmt.Errorf("completed task created but failed to mark original task complete: %w", err)
 	}
 
 	return newTaskID, nil

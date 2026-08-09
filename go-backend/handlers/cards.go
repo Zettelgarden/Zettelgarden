@@ -1284,11 +1284,22 @@ func (s *Handler) RestoreCardToAuditEventRoute(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Restore the card
-	restoredCard, err := services.RestoreCardToAuditEvent(s.GetDB(), userID, cardID, auditEventID)
+	// Restore the card (UPDATE + sync_log emit in one tx, 5ry)
+	tx, err := s.BeginTx()
 	if err != nil {
+		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+		return
+	}
+	restoredCard, err := services.RestoreCardToAuditEvent(tx, userID, cardID, auditEventID)
+	if err != nil {
+		s.rollbackTx(tx)
 		log.Printf("Error restoring card: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := s.commitTx(tx); err != nil {
+		log.Printf("restore card: commit: %v", err)
+		http.Error(w, "unable to commit", http.StatusInternalServerError)
 		return
 	}
 

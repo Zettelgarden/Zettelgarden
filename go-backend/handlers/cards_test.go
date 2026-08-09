@@ -546,6 +546,48 @@ func TestCreateUpdateDeleteCardRoutesEmitSyncLog(t *testing.T) {
 	}
 }
 
+// TestCreateCardRouteRollsBackWhenEmitFails exercises the PRODUCTION
+// atomicity contract of 5ry, which the shared-tx harness cannot: with
+// Server.Testing=false the route runs real pool transactions and real
+// rollback, so a forced sync_log insert failure must roll the card INSERT
+// back with it — never a committed row that is invisible to sync.
+func TestCreateCardRouteRollsBackWhenEmitFails(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Production semantics: real pool transactions + real rollback. The
+	// harness server is a package singleton, so restore the testing flag
+	// before this test returns (later tests must keep the shared-tx mode).
+	s.Server.Testing = false
+	defer func() { s.Server.Testing = true }()
+
+	// Force sync_log inserts to fail so the emit path errors deterministically.
+	if _, err := s.DB.Exec(`CREATE TRIGGER zg_test_fail_sync_log BEFORE INSERT ON sync_log BEGIN SELECT RAISE(ABORT, 'forced emit failure'); END`); err != nil {
+		t.Fatalf("create trigger: %v", err)
+	}
+	defer s.DB.Exec(`DROP TRIGGER IF EXISTS zg_test_fail_sync_log`)
+
+	token, _ := tests.GenerateTestJWT(1)
+	data := models.EditCardParams{Title: "rollback me", Body: "body", CardID: "rb1"}
+	jsonData, _ := json.Marshal(data)
+	req, _ := http.NewRequest("POST", "/api/cards/", bytes.NewBuffer(jsonData))
+	req.Header.Set("Authorization", "Bearer "+token)
+	rr := httptest.NewRecorder()
+	http.HandlerFunc(s.JwtMiddleware(s.CreateCardRoute)).ServeHTTP(rr, req)
+	if rr.Code == http.StatusCreated {
+		t.Fatalf("create card with forced emit failure: expected error status, got 201: %s", rr.Body.String())
+	}
+
+	// The card INSERT must be rolled back with the failed emit.
+	var count int
+	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM cards WHERE card_id = 'rb1' AND user_id = 1`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("card survived the rolled-back create: %d rows with card_id rb1", count)
+	}
+}
+
 func TestCreateCardDuplicateCardID(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()
