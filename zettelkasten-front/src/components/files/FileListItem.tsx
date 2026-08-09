@@ -224,6 +224,7 @@ export function FileListItem({
               <div className="min-w-0 flex-1">
                 <a
                   href="#"
+                  data-file-download={file.id}
                   onClick={(e) => handleFileDownload(file, e)}
                   className="text-gray-900 hover:text-blue-600 font-medium truncate block text-sm"
                 >

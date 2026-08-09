@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../../tests/utils';
 import { FileVault } from '../FileVault';
 import { File } from '../../models/File';
@@ -13,9 +13,13 @@ vi.mock('../../api/files', () => ({
   deleteFile: vi.fn(),
   editFile: vi.fn(),
   uploadFile: vi.fn(),
+  renderFile: vi.fn(),
+  downloadFile: vi.fn(),
+  downloadThumbnail: vi.fn(),
+  importEpub: vi.fn(),
 }));
 
-const { getAllFiles } = await import('../../api/files');
+const { getAllFiles, deleteFile, renderFile } = await import('../../api/files');
 
 const files: File[] = [
   {
@@ -69,6 +73,8 @@ describe('FileVault smoke', () => {
     );
     // Storage quota indicator renders when max_storage > 0
     expect(screen.getByText(/Storage/)).toBeInTheDocument();
+    // Exactly one GET /files on mount (72f.7 — no duplicate fetches)
+    expect(getAllFiles).toHaveBeenCalledTimes(1);
   });
 
   it('renders an empty state when there are no files', async () => {
@@ -88,5 +94,63 @@ describe('FileVault smoke', () => {
       expect(screen.getByText('No files yet')).toBeInTheDocument(),
     );
     expect(screen.queryByText('zettelkasten-notes.md')).toBeNull();
+  });
+
+  it('highlights a row with ArrowDown and deletes it with Delete', async () => {
+    vi.mocked(getAllFiles).mockResolvedValue({
+      files,
+      page: 1,
+      per_page: 20,
+      total: 1,
+      total_pages: 1,
+      storage_used: 2048,
+      max_storage: 104857600,
+    });
+    vi.mocked(deleteFile).mockResolvedValue({
+      message: 'deleted',
+      error: false,
+    });
+
+    renderWithProviders(<FileVault />);
+    await waitFor(() =>
+      expect(screen.getByText('zettelkasten-notes.md')).toBeInTheDocument(),
+    );
+
+    // ArrowDown highlights the first row
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    const row = document.querySelector('[data-file-id="1"]');
+    expect(row?.className).toContain('ring-2');
+
+    // Delete on the highlighted row deletes just that row (after confirm)
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fireEvent.keyDown(document, { key: 'Delete' });
+    await waitFor(() => expect(deleteFile).toHaveBeenCalledWith(1));
+    confirmSpy.mockRestore();
+  });
+
+  it('opens the file preview with Enter on the highlighted row', async () => {
+    vi.mocked(getAllFiles).mockResolvedValue({
+      files,
+      page: 1,
+      per_page: 20,
+      total: 1,
+      total_pages: 1,
+      storage_used: 2048,
+      max_storage: 104857600,
+    });
+    vi.mocked(renderFile).mockResolvedValue(undefined);
+
+    renderWithProviders(<FileVault />);
+    await waitFor(() =>
+      expect(screen.getByText('zettelkasten-notes.md')).toBeInTheDocument(),
+    );
+
+    fireEvent.keyDown(document, { key: 'ArrowDown' });
+    fireEvent.keyDown(document, { key: 'Enter' });
+
+    // .md is not an image/PDF, so the download/render path is used
+    await waitFor(() =>
+      expect(renderFile).toHaveBeenCalledWith(1, 'zettelkasten-notes.md'),
+    );
   });
 });

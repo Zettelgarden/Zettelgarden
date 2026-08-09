@@ -23,6 +23,7 @@ import { File } from '../models/File';
 import { defaultCard, PartialCard } from '../models/Card';
 import { HeaderSection } from '../components/Header';
 import { setDocumentTitle } from '../utils/title';
+import { parseFiletypeFilter } from '../utils/filetypeSearch';
 import { BacklinkInput } from '../components/cards/BacklinkInput';
 
 export function FileVault() {
@@ -75,56 +76,6 @@ export function FileVault() {
 
   // Keyboard navigation state
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-
-  // Keyboard navigation helpers
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      // Ignore if user is typing in an input
-      if (document.activeElement?.tagName.match(/^INPUT|TEXTAREA$/i)) {
-        return;
-      }
-
-      // Only handle if files are loaded and not dragging/uploading
-      if (loading || isDraggingOver || isUploading) return;
-
-      if (event.key === 'ArrowDown' || event.key === 'j') {
-        event.preventDefault();
-        if (selectedIndex === null) {
-          setSelectedIndex(0);
-        } else {
-          const newIndex = Math.min(selectedIndex + 1, files.length - 1);
-          setSelectedIndex(newIndex);
-        }
-      } else if (event.key === 'ArrowUp' || event.key === 'k') {
-        event.preventDefault();
-        if (selectedIndex === null) {
-          setSelectedIndex(files.length - 1);
-        } else {
-          const newIndex = Math.max(selectedIndex - 1, 0);
-          setSelectedIndex(newIndex);
-        }
-      } else if (event.key === 'Enter' && selectedIndex !== null) {
-        event.preventDefault();
-        const file = files[selectedIndex];
-        // Trigger the file preview
-        const fileInput = document.querySelector(
-          `[data-file-id="${file.id}"]`,
-        ) as HTMLElement;
-        if (fileInput) {
-          fileInput.click();
-        }
-      } else if (event.key === 'Delete' && selectedIndex !== null) {
-        event.preventDefault();
-        const file = files[selectedIndex];
-        handleBulkDelete();
-      } else if (event.key === 'Escape') {
-        event.preventDefault();
-        setSelectedIndex(null);
-        setSelectedFiles(new Set());
-      }
-    },
-    [files, loading, isDraggingOver, isUploading, selectedIndex],
-  );
 
   // Effect to reset selection when files change
   useEffect(() => {
@@ -455,6 +406,83 @@ export function FileVault() {
     );
   }
 
+  // Keyboard navigation (72f.5): arrow/j/k highlight rows, Enter opens the
+  // highlighted file's preview/download, Delete removes just the highlighted
+  // row (with confirmation). Defined after onDelete so the deps list covers
+  // every function referenced — no stale closures.
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (document.activeElement?.tagName.match(/^INPUT|TEXTAREA$/i)) {
+        return;
+      }
+
+      // Only handle if files are loaded and not dragging/uploading
+      if (loading || isDraggingOver || isUploading) return;
+
+      if (event.key === 'ArrowDown' || event.key === 'j') {
+        event.preventDefault();
+        if (selectedIndex === null) {
+          setSelectedIndex(0);
+        } else {
+          const newIndex = Math.min(selectedIndex + 1, files.length - 1);
+          setSelectedIndex(newIndex);
+        }
+      } else if (event.key === 'ArrowUp' || event.key === 'k') {
+        event.preventDefault();
+        if (selectedIndex === null) {
+          setSelectedIndex(files.length - 1);
+        } else {
+          const newIndex = Math.max(selectedIndex - 1, 0);
+          setSelectedIndex(newIndex);
+        }
+      } else if (event.key === 'Enter' && selectedIndex !== null) {
+        event.preventDefault();
+        const file = files[selectedIndex];
+        if (!file) return;
+        // Click the file's real download/preview link (FileListItem renders it
+        // with data-file-download). The <li data-file-id> has no click handler,
+        // so querying it was a no-op.
+        const downloadLink = document.querySelector(
+          `[data-file-download="${file.id}"]`,
+        ) as HTMLElement | null;
+        downloadLink?.click();
+      } else if (event.key === 'Delete' && selectedIndex !== null) {
+        event.preventDefault();
+        const file = files[selectedIndex];
+        if (!file) return;
+        if (!window.confirm(`Delete ${file.name}?`)) return;
+        deleteFile(file.id)
+          .then(() => {
+            onDelete(file.id);
+            setSelectedIndex(null);
+            showToast('success', 'File Deleted', `${file.name} deleted`);
+          })
+          .catch((error) => {
+            console.error(`Failed to delete file ${file.id}:`, error);
+            showToast(
+              'error',
+              'Delete Failed',
+              `Could not delete ${file.name}`,
+            );
+          });
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        setSelectedIndex(null);
+        setSelectedFiles(new Set());
+      }
+    },
+    [
+      files,
+      loading,
+      isDraggingOver,
+      isUploading,
+      selectedIndex,
+      onDelete,
+      showToast,
+    ],
+  );
+
   function handleFilter(
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) {
@@ -524,28 +552,52 @@ export function FileVault() {
     setCurrentPage(1);
   };
 
-  // Debounced search effect - triggers 300ms after user stops typing
+  // Debounced search effect - triggers 300ms after user stops typing. Parses
+  // the documented `filetype:TYPE` syntax out of the box into the filetype
+  // filter (72f.4); the remaining text becomes the filename search term.
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
-      setSearchTerm(filterString);
+      const { searchText, filetype } = parseFiletypeFilter(filterString);
+      setSearchTerm(searchText);
+      if (filetype !== null) {
+        setFiletypeFilter(filetype);
+      }
       setCurrentPage(1);
     }, 300);
 
     return () => clearTimeout(debounceTimer);
   }, [filterString]);
 
+  // After an upload (or any refreshFiles request), refetch the CURRENT query —
+  // preserving the search term, filters, and page (72f.6).
   useEffect(() => {
     if (refreshFiles) {
-      fetchFiles(1, '', '', false, sortBy, sortOrder);
+      fetchFiles(
+        currentPage,
+        searchTerm,
+        filetypeFilter,
+        unlinkedOnly,
+        sortBy,
+        sortOrder,
+      );
       setRefreshFiles(false);
     }
-  }, [refreshFiles]);
+  }, [
+    refreshFiles,
+    currentPage,
+    searchTerm,
+    filetypeFilter,
+    unlinkedOnly,
+    sortBy,
+    sortOrder,
+  ]);
 
   useEffect(() => {
     setDocumentTitle('Files');
-    fetchFiles(1, '', '', false, sortBy, sortOrder);
   }, []);
 
+  // Single fetch effect keyed on every query input (72f.7): exactly one
+  // GET /files on mount and one per (debounced) filter/sort/page change.
   useEffect(() => {
     fetchFiles(
       currentPage,
@@ -555,13 +607,14 @@ export function FileVault() {
       sortBy,
       sortOrder,
     );
-  }, [currentPage, filetypeFilter, unlinkedOnly, sortBy, sortOrder]);
-
-  useEffect(() => {
-    // Fetch when searchTerm changes (triggered by debounce)
-    setCurrentPage(1);
-    fetchFiles(1, searchTerm, filetypeFilter, unlinkedOnly, sortBy, sortOrder);
-  }, [searchTerm]);
+  }, [
+    currentPage,
+    searchTerm,
+    filetypeFilter,
+    unlinkedOnly,
+    sortBy,
+    sortOrder,
+  ]);
 
   // Keyboard navigation effect
   useEffect(() => {
