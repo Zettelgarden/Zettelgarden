@@ -99,6 +99,7 @@ bridge (`ZG_E2E=1`; the bridge is never injected in normal runs). It verifies:
    must boot authenticated from the keychain (no login form) and render the
    offline-created card from the local mirror instantly.
 
-Run with `bash desktop/e2e/smoke.sh` (needs Go, Node, cargo, xvfb-run; uses
-port 18131 and a temp run dir). The file keychain (`ZG_KEYCHAIN_FILE`) stands
-in for the OS Secret Service daemon, which needs a desktop session.
+Run with `bash desktop/e2e/smoke.sh` (needs Go, Node, cargo, xvfb-run, and
+python3 — the script dumps the mirror.db via python3's sqlite3; uses port
+18131 and a temp run dir). The file keychain (`ZG_KEYCHAIN_FILE`) stands in
+for the OS Secret Service daemon, which needs a desktop session.

@@ -42,7 +42,7 @@ import { useTagContext } from '../../contexts/TagContext';
 import { setDocumentTitle } from '../../utils/title';
 import { isErrorResponse } from '../../models/common';
 import { getMissingRequiredFields } from '../../utils/schemaValidation';
-import { fetchSchema } from '../../api/schemas';
+import { fetchSchemas } from '../../api/schemas';
 
 // New component imports
 import { EditPageHeader } from '../../components/cards/EditPageHeader';
@@ -200,21 +200,27 @@ function EditPageContent({ newCard }: EditPageProps) {
   // clear draft on save
   async function handleSaveCard() {
     // Enforce required schema fields before save (bead s2l) — mirrors the
-    // backend rule so users get inline feedback, not a server error.
+    // backend rule so users get inline feedback, not a server error. Validate
+    // from the cached schema list (CardSchemaSection loads it on mount) instead
+    // of a /schemas/:id round-trip per save (bead a1u); the server enforces
+    // the same rule as fallback.
     if (editingCard.schema_id) {
       try {
-        const schema = await fetchSchema(editingCard.schema_id);
-        const missing = getMissingRequiredFields(
-          schema.fields,
-          editingCard.structured_data,
-        );
-        if (missing.length > 0) {
-          setError(
-            `Please fill required field${
-              missing.length > 1 ? 's' : ''
-            }: ${missing.join(', ')}`,
+        const schemas = await fetchSchemas();
+        const schema = schemas.find((s) => s.id === editingCard.schema_id);
+        if (schema) {
+          const missing = getMissingRequiredFields(
+            schema.fields,
+            editingCard.structured_data,
           );
-          return;
+          if (missing.length > 0) {
+            setError(
+              `Please fill required field${
+                missing.length > 1 ? 's' : ''
+              }: ${missing.join(', ')}`,
+            );
+            return;
+          }
         }
       } catch (err) {
         console.error('Failed to load schema for validation:', err);

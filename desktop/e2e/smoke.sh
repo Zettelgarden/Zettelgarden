@@ -55,7 +55,12 @@ echo "== building desktop binary (release + custom-protocol = embedded dist)"
   # tauri's is_dev() = !custom-protocol: a plain cargo build stays in dev mode
   # and loads devUrl. Also touch lib.rs so a dist-only change forces re-embed.
   touch src/lib.rs
-  cargo build --release --quiet --features tauri/custom-protocol 2>&1 | tail -5 || true
+  # No '|| true' here: a broken build MUST abort the smoke (a stale release
+  # binary from an earlier build must never silently pass) — Zettelgarden-9p7.
+  if ! cargo build --release --quiet --features tauri/custom-protocol 2>&1 | tail -20; then
+    echo "FAIL: cargo build failed (log above)" >&2
+    exit 1
+  fi
 )
 APP_BIN="$DESKTOP/src-tauri/target/release/zettelgarden-desktop"
 [ -x "$APP_BIN" ] || { echo "app binary missing: $APP_BIN"; exit 1; }
@@ -162,6 +167,14 @@ print(f"  outbox rows: {outbox}")
 PYEOF
 
 # --- launch 2: relaunch — keychain session + instant offline open ----------
+# Stop the backend FIRST so this launch genuinely boots with the server
+# unreachable (Zettelgarden-6mj): the app must open authenticated from the
+# keychain and render mirror data with a no-connection indicator (Offline or
+# Sync error) — not just relaunch while the backend happens to still be running.
+echo "== stopping backend for offline relaunch"
+kill "$BACKEND_PID" 2>/dev/null || true
+wait "$BACKEND_PID" 2>/dev/null || true
+
 rm -f "$REPORT.session"
 if run_scenario session "$APP_DATA" "$REPORT.session"; then
   assert_report "$REPORT.session" session

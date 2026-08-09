@@ -9,10 +9,26 @@ function parseSchemaDates(schema: SchemaDefinition): SchemaDefinition {
   };
 }
 
+// Session-level schema-list cache (bead Zettelgarden-a1u): CardSchemaSection
+// loads the full list on mount, and EditPage.handleSaveCard validates required
+// fields from that same list instead of an extra /schemas/:id round-trip per
+// save. Invalidated on create/update/delete so admin edits are re-fetched.
+let schemasCache: SchemaDefinition[] | null = null;
+
+function invalidateSchemasCache(): void {
+  schemasCache = null;
+}
+
 export function fetchSchemas(): Promise<SchemaDefinition[]> {
+  if (schemasCache) {
+    return Promise.resolve(schemasCache);
+  }
   return getData(apiClient.get<SchemaDefinition[]>('/schemas'))
     .then((schemas) => schemas || [])
-    .then((schemas) => schemas.map(parseSchemaDates));
+    .then((schemas) => {
+      schemasCache = schemas.map(parseSchemaDates);
+      return schemasCache;
+    });
 }
 
 export function fetchSchema(id: number): Promise<SchemaDefinition> {
@@ -37,6 +53,7 @@ export interface CreateSchemaParams {
 export function createSchema(
   params: CreateSchemaParams,
 ): Promise<SchemaDefinition> {
+  invalidateSchemasCache();
   return getData(apiClient.post<SchemaDefinition>('/schemas', params)).then(
     parseSchemaDates,
   );
@@ -51,6 +68,7 @@ export function updateSchema(
   id: number,
   params: UpdateSchemaParams,
 ): Promise<SchemaDefinition> {
+  invalidateSchemasCache();
   return getData(
     apiClient.put<SchemaDefinition>(`/schemas/${id}`, params),
   ).then(parseSchemaDates);
@@ -63,5 +81,6 @@ export interface DeleteSchemaResponse {
 }
 
 export function deleteSchema(id: number): Promise<DeleteSchemaResponse> {
+  invalidateSchemasCache();
   return getData(apiClient.delete<DeleteSchemaResponse>(`/schemas/${id}`));
 }

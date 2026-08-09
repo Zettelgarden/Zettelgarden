@@ -38,7 +38,11 @@ enum CredentialStore {
     Os,
     File {
         path: std::path::PathBuf,
-        cache: std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+        /// In-memory mirror of the file. `None` = not loaded yet, `Some(map)` =
+        /// loaded (even when the map is legitimately empty) — an explicit
+        /// loaded flag so a legitimately empty store is not re-read from disk
+        /// on every get/set (Zettelgarden-23n).
+        cache: std::sync::Mutex<Option<serde_json::Map<String, serde_json::Value>>>,
     },
 }
 
@@ -46,7 +50,7 @@ fn credential_store() -> CredentialStore {
     match std::env::var("ZG_KEYCHAIN_FILE") {
         Ok(path) => CredentialStore::File {
             path: std::path::PathBuf::from(path),
-            cache: std::sync::Mutex::new(serde_json::Map::new()),
+            cache: std::sync::Mutex::new(None),
         },
         Err(_) => CredentialStore::Os,
     }
@@ -108,17 +112,17 @@ impl CredentialStore {
     fn load(
         &self,
         path: &std::path::Path,
-        cache: &std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+        cache: &std::sync::Mutex<Option<serde_json::Map<String, serde_json::Value>>>,
     ) -> Result<serde_json::Map<String, serde_json::Value>, String> {
         let mut cache = cache.lock().map_err(|e| e.to_string())?;
-        if !cache.is_empty() {
-            return Ok(cache.clone());
+        if let Some(map) = cache.as_ref() {
+            return Ok(map.clone());
         }
         match std::fs::read_to_string(path) {
             Ok(raw) => {
                 let parsed: serde_json::Map<String, serde_json::Value> =
                     serde_json::from_str(&raw).map_err(|e| format!("keychain file parse: {e}"))?;
-                *cache = parsed.clone();
+                *cache = Some(parsed.clone());
                 Ok(parsed)
             }
             Err(_) => Ok(serde_json::Map::new()),
@@ -128,16 +132,33 @@ impl CredentialStore {
     fn store(
         &self,
         path: &std::path::Path,
-        cache: &std::sync::Mutex<serde_json::Map<String, serde_json::Value>>,
+        cache: &std::sync::Mutex<Option<serde_json::Map<String, serde_json::Value>>>,
         map: serde_json::Map<String, serde_json::Value>,
     ) -> Result<(), String> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("keychain mkdir: {e}"))?;
         }
         let raw = serde_json::to_string_pretty(&map).map_err(|e| e.to_string())?;
-        std::fs::write(path, raw).map_err(|e| format!("keychain write: {e}"))?;
+        // Secrets must not be world-readable (default umask would give 0644):
+        // create the file with 0600 on unix (Zettelgarden-zt3).
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut opts = std::fs::OpenOptions::new();
+            opts.write(true).create(true).truncate(true).mode(0o600);
+            let mut f = opts
+                .open(path)
+                .map_err(|e| format!("keychain open: {e}"))?;
+            use std::io::Write;
+            f.write_all(raw.as_bytes())
+                .map_err(|e| format!("keychain write: {e}"))?;
+        }
+        #[cfg(not(unix))]
+        {
+            std::fs::write(path, raw).map_err(|e| format!("keychain write: {e}"))?;
+        }
         let mut cache = cache.lock().map_err(|e| e.to_string())?;
-        *cache = map;
+        *cache = Some(map);
         Ok(())
     }
 }
@@ -240,7 +261,7 @@ mod tests {
         {
             let store = super::CredentialStore::File {
                 path: path.clone(),
-                cache: std::sync::Mutex::new(serde_json::Map::new()),
+                cache: std::sync::Mutex::new(None),
             };
             store.set("token", "jwt-abc").expect("set");
             store.set("username", "nick").expect("set");
@@ -250,12 +271,41 @@ mod tests {
         {
             let store = super::CredentialStore::File {
                 path: path.clone(),
-                cache: std::sync::Mutex::new(serde_json::Map::new()),
+                cache: std::sync::Mutex::new(None),
             };
             assert_eq!(store.get("token").unwrap().as_deref(), Some("jwt-abc"));
             assert_eq!(store.get("username").unwrap().as_deref(), Some("nick"));
             store.delete("token").expect("delete");
             assert_eq!(store.get("token").unwrap(), None);
+        }
+        // A legitimate empty store is flagged loaded on first access, so an
+        // external file change is NOT re-read (the cache is authoritative once
+        // loaded; Zettelgarden-23n).
+        {
+            let store = super::CredentialStore::File {
+                path: path.clone(),
+                cache: std::sync::Mutex::new(None),
+            };
+            assert_eq!(store.get("token").unwrap(), None); // empty map, flagged loaded
+            std::fs::write(&path, r#"{"token":"externally-written"}"#).expect("external write");
+            assert_eq!(
+                store.get("token").unwrap(),
+                None,
+                "cache must not re-read the file after load"
+            );
+            store.set("username", "nick").expect("set");
+            let raw = std::fs::read_to_string(&path).expect("read back");
+            assert!(
+                raw.contains("\"username\"") && !raw.contains("externally-written"),
+                "set must write the in-memory map, not merge a re-read: {raw}"
+            );
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let meta = std::fs::metadata(&path).expect("keychain file metadata");
+            let mode = meta.permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "keychain file must be 0600, got {mode:o}");
         }
         std::fs::remove_dir_all(&dir).ok();
     }

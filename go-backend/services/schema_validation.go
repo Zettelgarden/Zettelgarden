@@ -102,8 +102,6 @@ func isEmptyRequiredValue(value interface{}) bool {
 		return strings.TrimSpace(v) == ""
 	case []interface{}:
 		return len(v) == 0
-	case []string:
-		return len(v) == 0
 	default:
 		return false
 	}

@@ -82,7 +82,6 @@ function setInput(selector: string, value: string): void {
 }
 
 function indicatorLabel(): string | null {
-  const el = document.querySelector('[aria-label]') as HTMLElement | null;
   const all = Array.from(document.querySelectorAll('[aria-label]'));
   const indicator = all.find((n) => {
     const label = n.getAttribute('aria-label') ?? '';
@@ -412,6 +411,19 @@ async function runSession(e2e: E2E): Promise<void> {
 
   const client = await getSyncClient();
   if (!client) throw new Error('sync client not available');
+  // The backend is stopped for this launch (smoke.sh, Zettelgarden-6mj): the
+  // app must settle on a no-connection indicator while still rendering the
+  // mirror. "Offline" is shown when the engine is told offline (navigator
+  // offline); with the machine online but the server unreachable the engine
+  // reports "Sync error" — both mean the server is down, either is a pass.
+  await waitFor(
+    'no-connection indicator',
+    () => {
+      const label = indicatorLabel() ?? '';
+      return label.includes('Offline') || label.includes('Sync error');
+    },
+    60_000,
+  );
   await waitFor(
     'mirror data',
     async () => (await client.engine.query('cards')).length >= 1,

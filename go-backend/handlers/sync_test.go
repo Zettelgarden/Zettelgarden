@@ -1346,6 +1346,51 @@ func TestSyncPushSchemaValidationRejectsInvalidStructuredData(t *testing.T) {
 	}
 }
 
+// TestSyncPushRejectsStructuredDataWithoutSchema mirrors the REST guard
+// "structured_data requires schema_id to be specified" (handlers/cards.go) on
+// the sync push path (bead Zettelgarden-a1u): same user intent must produce the
+// same outcome by transport.
+func TestSyncPushRejectsStructuredDataWithoutSchema(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// NOTE: the success case runs FIRST — the handler rolls back the shared
+	// test transaction when a push is rejected, so anything after a 400 would
+	// hit "transaction has already been committed or rolled back".
+
+	// Empty structured_data with no schema_id stays valid (matches REST).
+	emptyData := models.SyncChange{
+		Collection: services.SyncCollectionCards, RowUUID: "sync-noschema-2",
+		Op: services.SyncOpUpsert, BaseVersion: 0,
+		Data: mustJSON(t, models.SyncCardData{
+			CardID: "NOSCHEMA2", Title: "No schema empty", Body: "x",
+			StructuredData: ptrRaw(json.RawMessage(`{}`)),
+		}),
+	}
+	resp := decodeSyncResp[models.SyncPushResponse](t, syncRequest(t, s, router, "POST", "/api/sync/push", models.SyncPushRequest{Changes: []models.SyncChange{emptyData}, DeviceID: "test-device"}))
+	if len(resp.Results) != 1 || resp.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("expected applied for empty structured_data without schema, got %+v", resp.Results)
+	}
+
+	// Non-empty structured_data with no schema_id -> 400 + message.
+	noSchema := models.SyncChange{
+		Collection: services.SyncCollectionCards, RowUUID: "sync-noschema-1",
+		Op: services.SyncOpUpsert, BaseVersion: 0,
+		Data: mustJSON(t, models.SyncCardData{
+			CardID: "NOSCHEMA1", Title: "No schema", Body: "x",
+			StructuredData: ptrRaw(json.RawMessage(`{"a":"b"}`)),
+		}),
+	}
+	rr := syncRequest(t, s, router, "POST", "/api/sync/push", models.SyncPushRequest{Changes: []models.SyncChange{noSchema}, DeviceID: "test-device"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for structured_data without schema_id via sync, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "structured_data requires schema_id") {
+		t.Errorf("expected REST-mirroring message, got: %s", rr.Body.String())
+	}
+}
+
 func mustJSON[T any](t *testing.T, v T) json.RawMessage {
 	t.Helper()
 	b, err := json.Marshal(v)

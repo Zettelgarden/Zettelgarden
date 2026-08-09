@@ -50,8 +50,14 @@ pub fn e2e_report(
     is_final: Option<bool>,
     ok: Option<bool>,
 ) -> Result<(), String> {
+    // The bridge is only injected when ZG_E2E=1 (see lib.rs); refuse the
+    // command outright outside an E2E run so a stray page can't even reach
+    // the file write (Zettelgarden-23n).
+    if std::env::var("ZG_E2E").as_deref() != Ok("1") {
+        return Err("e2e_report is only available when ZG_E2E=1".to_string());
+    }
     let Some(path) = std::env::var("ZG_E2E_OUTPUT").ok() else {
-        return Ok(()); // not an E2E run; no-op
+        return Ok(()); // E2E run without an output path configured; no-op
     };
     let mut line = entry;
     if !line.ends_with('\n') {

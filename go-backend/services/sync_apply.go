@@ -500,6 +500,14 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 	// Match UpdateCard: strip all whitespace from card_id before proceeding.
 	data.CardID = normalizeCardID(data.CardID)
 
+	// Mirror REST's "structured_data requires schema_id" guard (handlers/
+	// cards.go else-if): structured data without a schema is rejected with 400
+	// on the REST path, so the push path must not silently accept it — same
+	// user intent, same outcome by transport (bead Zettelgarden-a1u).
+	if data.CardSchemaID == nil && !data.IsDeleted && !StructuredDataIsEmpty(data.StructuredData) {
+		return &ValidationError{Msg: "structured_data requires schema_id to be specified"}
+	}
+
 	// Mirror REST create/update schema validation (bead s2l): a pushed card
 	// with a schema must carry structured_data satisfying required fields,
 	// exactly like the UI save path. Reject the change with a typed error so
