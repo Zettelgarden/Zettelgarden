@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BookOpenIcon } from '../../assets/icons/BookOpenIcon';
 import { SettingsIcon } from '../../assets/icons/SettingsIcon';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Shield } from 'lucide-react';
 import { SyncStatusIndicator } from '../SyncStatusIndicator';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarFooterProps {
   isCollapsed: boolean;
@@ -89,6 +90,7 @@ export function SidebarFooter({
   isCollapsed,
   onToggleCollapse,
 }: SidebarFooterProps) {
+  const { isAdmin } = useAuth();
   const [showTooltip, setShowTooltip] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -131,6 +133,14 @@ export function SidebarFooter({
           label="Settings"
           isCollapsed={isCollapsed}
         />
+        {isAdmin && (
+          <CollapsibleLink
+            to="/admin"
+            icon={<Shield size={18} />}
+            label="Admin"
+            isCollapsed={isCollapsed}
+          />
+        )}
         {isCollapsed ? (
           <div className="relative">
             <button

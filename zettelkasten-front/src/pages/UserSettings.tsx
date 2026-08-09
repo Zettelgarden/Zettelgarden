@@ -352,6 +352,22 @@ export function UserSettingsPage() {
               </div>
             </div>
 
+            {user?.is_admin && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-2">Administration</h2>
+                <p className="text-sm text-gray-600 mb-3">
+                  Manage users, settings, scheduled jobs and instance
+                  configuration.
+                </p>
+                <button
+                  onClick={() => navigate('/admin')}
+                  className="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900"
+                >
+                  Open Admin Panel
+                </button>
+              </div>
+            )}
+
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Account Actions</h2>
               <div className="space-y-2">
