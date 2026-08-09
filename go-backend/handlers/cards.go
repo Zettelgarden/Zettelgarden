@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1405,13 +1406,39 @@ func (s *Handler) ProcessCardAfterCreation(userID int, card models.Card, shouldP
 }
 
 // sharedMatchReason builds a human-readable reason string for a shared
-// entity/tag match, e.g. "3 shared entities: Python, LLM" or "1 shared tag: research".
-func sharedMatchReason(singular string, match models.SharedMatch) string {
-	prefix := fmt.Sprintf("%d shared %ss", match.Count, singular)
+// entity/tag match, e.g. "3 shared entities: Python, LLM" or "1 shared entity: Test Entity 4".
+func sharedMatchReason(singular, plural string, match models.SharedMatch) string {
+	label := plural
+	if match.Count == 1 {
+		label = singular
+	}
+	prefix := fmt.Sprintf("%d shared %s", match.Count, label)
 	if len(match.Names) == 0 {
 		return prefix
 	}
 	return fmt.Sprintf("%s: %s", prefix, strings.Join(match.Names, ", "))
+}
+
+// envFloat reads a float64 from the environment, falling back to def when
+// unset or unparsable.
+func envFloat(key string, def float64) float64 {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			return parsed
+		}
+	}
+	return def
+}
+
+// envInt reads an int from the environment, falling back to def when unset or
+// unparsable.
+func envInt(key string, def int) int {
+	if v := os.Getenv(key); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			return parsed
+		}
+	}
+	return def
 }
 
 // boolPtr returns a pointer to a bool
@@ -1472,22 +1499,31 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 	combinedScores := make(map[int]float64)
 	cardReasons := make(map[int][]string)
 
-	// Add entity scores (each shared entity = 3 points)
-	for candidateID, match := range entityMatches {
-		combinedScores[candidateID] += float64(match.Count) * 3
-		cardReasons[candidateID] = append(cardReasons[candidateID], sharedMatchReason("entity", match))
+	// Scoring weights are configurable via env vars (defaults: 3 / 1 / 10 / 10)
+	entityWeight := envFloat("RELATED_ENTITY_WEIGHT", 3)
+	tagWeight := envFloat("RELATED_TAG_WEIGHT", 1)
+	semanticWeight := envFloat("RELATED_SEMANTIC_WEIGHT", 10)
+	maxResults := envInt("RELATED_MAX_RESULTS", 10)
+	if maxResults < 1 {
+		maxResults = 10
 	}
 
-	// Add tag scores (each shared tag = 1 point)
+	// Add entity scores (each shared entity = entityWeight points)
+	for candidateID, match := range entityMatches {
+		combinedScores[candidateID] += float64(match.Count) * entityWeight
+		cardReasons[candidateID] = append(cardReasons[candidateID], sharedMatchReason("entity", "entities", match))
+	}
+
+	// Add tag scores (each shared tag = tagWeight point)
 	for candidateID, match := range tagMatches {
-		combinedScores[candidateID] += float64(match.Count) * 1
-		cardReasons[candidateID] = append(cardReasons[candidateID], sharedMatchReason("tag", match))
+		combinedScores[candidateID] += float64(match.Count) * tagWeight
+		cardReasons[candidateID] = append(cardReasons[candidateID], sharedMatchReason("tag", "tags", match))
 	}
 
 	// Add semantic scores (already 0-1 range)
 	for _, sc := range semanticScores {
-		// Scale semantic score (0-1) to 0-10 range for better balance with entity/tag scores
-		scaledScore := sc.Score * 10.0
+		// Scale semantic score (0-1) by semanticWeight for balance with entity/tag scores
+		scaledScore := sc.Score * semanticWeight
 		combinedScores[sc.ID] += scaledScore
 		cardReasons[sc.ID] = append(cardReasons[sc.ID], "semantically similar")
 	}
@@ -1580,9 +1616,9 @@ func (s *Handler) GetRelatedCardsRoute(w http.ResponseWriter, r *http.Request) {
 		return relatedCards[i].Score > relatedCards[j].Score
 	})
 
-	// Limit to top 10
-	if len(relatedCards) > 10 {
-		relatedCards = relatedCards[:10]
+	// Limit to max results (configurable, default 10)
+	if len(relatedCards) > maxResults {
+		relatedCards = relatedCards[:maxResults]
 	}
 
 	w.Header().Set("Content-Type", "application/json")

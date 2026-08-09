@@ -2843,3 +2843,135 @@ func TestGetRelatedCards_NonExistentCard(t *testing.T) {
 		t.Errorf("Expected status code %v for non-existent card, got %v", http.StatusNotFound, status)
 	}
 }
+
+// TestGetRelatedCards_ConfigurableWeights verifies that the RELATED_* env vars
+// control scoring weights (and that unparsable values fall back to defaults).
+func TestGetRelatedCards_ConfigurableWeights(t *testing.T) {
+	// t.Setenv restores prior values after the test, so sibling tests keep defaults.
+	t.Setenv("RELATED_ENTITY_WEIGHT", "5")
+	t.Setenv("RELATED_TAG_WEIGHT", "2")
+	t.Setenv("RELATED_MAX_RESULTS", "3")
+	// Unparsable value must fall back to the default.
+	t.Setenv("RELATED_SEMANTIC_WEIGHT", "not-a-number")
+
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	req, err := http.NewRequest("GET", "/api/cards/1/related", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/related", s.JwtMiddleware(s.GetRelatedCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var relatedCards []models.RelatedCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &relatedCards)
+
+	if len(relatedCards) > 3 {
+		t.Errorf("RELATED_MAX_RESULTS not honored: got %d results, want at most 3", len(relatedCards))
+	}
+
+	// Card 3 shares entity 4 ("Test Entity 4") with card 1 and is neither a
+	// reference nor family, so it is the entity-based candidate. With
+	// RELATED_ENTITY_WEIGHT=5 its score should be 1 * 5 = 5 and its reason
+	// should carry the matched entity name.
+	found := false
+	for _, rc := range relatedCards {
+		if rc.Card.ID == 3 {
+			found = true
+			if rc.Score != 5 {
+				t.Errorf("expected card 3 score 5 (1 entity * weight 5), got %v", rc.Score)
+			}
+			if len(rc.Reasons) == 0 || rc.Reasons[0] != "1 shared entity: Test Entity 4" {
+				t.Errorf("expected reason '1 shared entity: Test Entity 4', got %v", rc.Reasons)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected card 3 to appear in related cards")
+	}
+}
+
+// TestGetRelatedCards_MaxResultsLimit verifies RELATED_MAX_RESULTS caps the
+// number of returned related cards.
+func TestGetRelatedCards_MaxResultsLimit(t *testing.T) {
+	t.Setenv("RELATED_MAX_RESULTS", "2")
+
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Give cards 4 and 5 a shared entity with card 1, so there are 3 entity
+	// candidates (card 3 + cards 4 and 5). Card 2 is excluded as a reference.
+	for _, cardPK := range []int{4, 5} {
+		if _, err := s.GetDB().Exec(`
+			INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
+			VALUES ($1, $2, $3)
+		`, 1, 1, cardPK); err != nil {
+			t.Fatalf("failed to link entity 1 to card %d: %v", cardPK, err)
+		}
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+
+	req, err := http.NewRequest("GET", "/api/cards/1/related", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/related", s.JwtMiddleware(s.GetRelatedCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var relatedCards []models.RelatedCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &relatedCards)
+
+	if len(relatedCards) != 2 {
+		t.Errorf("RELATED_MAX_RESULTS=2 not honored: got %d results", len(relatedCards))
+	}
+}
+
+// TestEnvFloatAndEnvInt verifies the env helpers fall back to defaults for
+// unset and unparsable values.
+func TestEnvFloatAndEnvInt(t *testing.T) {
+	if got := envFloat("TEST_ENV_FLOAT", 3); got != 3 {
+		t.Errorf("expected unset env to return default 3, got %v", got)
+	}
+	t.Setenv("TEST_ENV_FLOAT", "4.5")
+	if got := envFloat("TEST_ENV_FLOAT", 3); got != 4.5 {
+		t.Errorf("expected 4.5, got %v", got)
+	}
+	t.Setenv("TEST_ENV_FLOAT", "junk")
+	if got := envFloat("TEST_ENV_FLOAT", 3); got != 3 {
+		t.Errorf("expected unparsable env to return default 3, got %v", got)
+	}
+
+	if got := envInt("TEST_ENV_INT", 10); got != 10 {
+		t.Errorf("expected unset env to return default 10, got %v", got)
+	}
+	t.Setenv("TEST_ENV_INT", "25")
+	if got := envInt("TEST_ENV_INT", 10); got != 25 {
+		t.Errorf("expected 25, got %v", got)
+	}
+	t.Setenv("TEST_ENV_INT", "junk")
+	if got := envInt("TEST_ENV_INT", 10); got != 10 {
+		t.Errorf("expected unparsable env to return default 10, got %v", got)
+	}
+}
