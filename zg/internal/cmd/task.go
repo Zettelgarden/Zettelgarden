@@ -390,7 +390,44 @@ func runTaskDelete(cmd *cobra.Command, args []string) error {
 }
 
 func runTaskComplete(cmd *cobra.Command, args []string) error {
-	return runTaskUpdate(cmd, args)
+	taskID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid task ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	// Mirror the MCP server's complete_task: set is_complete=true and
+	// status="done" so the two fields stay consistent.
+	requestBody := map[string]any{
+		"is_complete": true,
+		"status":      "done",
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Put(fmt.Sprintf("/api/tasks/%d", taskID), bodyBytes)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	respBody, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(respBody))
+	}
+
+	return output.WriteMessage(os.Stdout, "Task marked complete")
 }
 
 // GetTaskCmd returns the task command for registration
