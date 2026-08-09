@@ -245,6 +245,73 @@ func TestSyncPushTagNameMerge(t *testing.T) {
 	}
 }
 
+// TestSyncPushTagRenameTombstone covers the 8g0 policy: a rename keeps a
+// soft-deleted tombstone for the renamed-away name (fresh uuid, never
+// emitted), so a later offline create of the old name RESURRECTS it instead
+// of making a fresh row — stable identity across the rename+recreate cycle.
+func TestSyncPushTagRenameTombstone(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+	router := newSyncRouter(s)
+
+	// A creates 'work'.
+	create := syncTagChange("tag-a", "work", "blue", 0)
+	if r := pushChanges(t, s, router, []models.SyncChange{create}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("create work: %+v", r.Results[0])
+	}
+
+	// A renames 'work' -> 'tasks' (same row, uuid tag-a).
+	rename := syncTagChange("tag-a", "tasks", "blue", 1)
+	if r := pushChanges(t, s, router, []models.SyncChange{rename}); r.Results[0].Status != services.SyncStatusApplied {
+		t.Fatalf("rename to tasks: %+v", r.Results[0])
+	}
+
+	// A tombstone row for the renamed-away name exists: soft-deleted, FRESH
+	// uuid (tag-a now belongs to 'tasks').
+	var tombUUID string
+	if err := s.GetDB().QueryRow(`SELECT sync_uuid FROM tags WHERE user_id = 1 AND name = 'work' AND is_deleted = TRUE`).Scan(&tombUUID); err != nil {
+		t.Fatalf("tombstone for 'work' missing after rename: %v", err)
+	}
+	if tombUUID == "tag-a" {
+		t.Fatalf("tombstone reused the renamed row's uuid, want a fresh one")
+	}
+
+	// B creates 'work' offline: the create RESURRECTS the tombstone (merged,
+	// mapped to the tombstone uuid) instead of making a fresh row.
+	bCreate := syncTagChange("tag-b-fresh", "work", "red", 0)
+	resp := pushChanges(t, s, router, []models.SyncChange{bCreate})
+	if resp.Results[0].Status != services.SyncStatusMerged {
+		t.Fatalf("B's create of the renamed-away name: expected merged, got %+v", resp.Results[0])
+	}
+	if resp.Results[0].MappedToRowUUID != tombUUID {
+		t.Errorf("B mapped to %q, want the tombstone uuid %q", resp.Results[0].MappedToRowUUID, tombUUID)
+	}
+
+	// Exactly one live 'work' (the tombstone row, resurrected) and one live
+	// 'tasks' (tag-a); B's fresh uuid never landed server-side.
+	var workCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM tags WHERE user_id = 1 AND name = 'work' AND is_deleted = FALSE`).Scan(&workCount); err != nil {
+		t.Fatal(err)
+	}
+	if workCount != 1 {
+		t.Errorf("live 'work' count = %d, want 1", workCount)
+	}
+	var tasksCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM tags WHERE user_id = 1 AND name = 'tasks' AND is_deleted = FALSE`).Scan(&tasksCount); err != nil {
+		t.Fatal(err)
+	}
+	if tasksCount != 1 {
+		t.Errorf("live 'tasks' count = %d, want 1", tasksCount)
+	}
+	var freshCount int
+	if err := s.GetDB().QueryRow(`SELECT COUNT(*) FROM tags WHERE user_id = 1 AND sync_uuid = 'tag-b-fresh'`).Scan(&freshCount); err != nil {
+		t.Fatal(err)
+	}
+	if freshCount != 0 {
+		t.Errorf("B's fresh uuid survived server-side (%d rows)", freshCount)
+	}
+}
+
 func TestSyncPushIdempotentRetry(t *testing.T) {
 	s := NewHandler()
 	defer tests.Teardown()

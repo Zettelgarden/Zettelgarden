@@ -44,7 +44,8 @@ harness/
     ├── 06-tag-rename.ts       # rename-vs-rename (LWW, one tag) and rename-vs-create
     ├── 07-offline-delete.ts   # delete vs concurrent edit: no ghost row on the losing device
     ├── 08-delete-propagates.ts # plain offline delete reaches the other device via the feed
-    └── 09-feed-pagination.ts  # 510-row push + paginated pull (>500 feed page size)
+    ├── 09-feed-pagination.ts  # 510-row push + paginated pull (>500 feed page size)
+    └── 10-tag-tombstone.ts    # rename-vs-create resurrects the renamed-away tombstone (8g0)
 ```
 
 Each scenario gets a **fresh account** (new users are seeded with a welcome
@@ -85,13 +86,12 @@ several rounds until settled, and the harness asserts:
   `is_deleted` truthiness and drops the mirror row when the adopted server
   data says deleted. Found in the independent subagent review.
 
-## Known policy gap (follow-up)
+## Tag rename tombstone (Zettelgarden-8g0, implemented)
 
-Tag **rename-vs-create** (A renames `work`→`tasks` offline while B creates a
-fresh `work` offline) converges deterministically today — one live `tasks` tag
-(A's row) and one live `work` tag (B's fresh row), identical on every device
-and the server. The v1 policy refinement from the design's third-pass review
-("the renamed-away name's row soft-deleted", so B's create would resurrect a
-tombstone instead of creating fresh) is **not implemented**; observable
-convergence is identical either way. Filed as a follow-up bead
-(see `Zettelgarden-8g0`).
+Tag **rename-vs-create** (A renames `work`→`tasks` while B creates a fresh
+`work` offline) now keeps a soft-deleted **tombstone** for the renamed-away
+name: rename is a normal upsert of the new name, and the old name's row
+(`is_deleted=true`, fresh uuid, never emitted) is the stable identity a later
+recreate resurrects — matching REST `CreateTag`. Scenario 10 asserts B's
+fresh uuid is merged away (it never survives as a second row), so the `work`
+identity is stable across the rename+recreate cycle.

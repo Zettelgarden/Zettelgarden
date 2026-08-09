@@ -8,6 +8,7 @@ import { tagRenameScenario } from './06-tag-rename';
 import { offlineDeleteScenario } from './07-offline-delete';
 import { deletePropagatesScenario } from './08-delete-propagates';
 import { feedPaginationScenario } from './09-feed-pagination';
+import { tagTombstoneScenario } from './10-tag-tombstone';
 
 /** All Phase 1b convergence scenarios, run in order against the live backend. */
 export const scenarios: Scenario[] = [
@@ -20,4 +21,5 @@ export const scenarios: Scenario[] = [
   offlineDeleteScenario,
   deletePropagatesScenario,
   feedPaginationScenario,
+  tagTombstoneScenario,
 ];

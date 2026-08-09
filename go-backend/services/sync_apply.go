@@ -11,6 +11,8 @@ import (
 
 	"go-backend/models"
 	"go-backend/services/backlink"
+
+	"github.com/google/uuid"
 )
 
 // Sync push application (epic Zettelgarden-v5b, Phase 0b — issue tsv).
@@ -853,6 +855,35 @@ func (c *pushContext) resolveTaskFKs(data *models.SyncTaskData) (cardPK int, par
 
 // ---- tags ------------------------------------------------------------------
 
+// tombstoneTagName keeps a soft-deleted placeholder for a tag name that was
+// renamed away (bead Zettelgarden-8g0): rename is a normal upsert of the NEW
+// name, and the renamed-away name gets its own deleted row so a later offline
+// create of the old name RESURRECTS the same row (stable uuid across the
+// rename+recreate cycle, matching REST CreateTag's resurrect semantics).
+//
+// If any row — live or tombstone — already holds the name, nothing is
+// inserted: a live row is the merge target for a recreate, and an existing
+// tombstone is already the stable identity. The tombstone gets a FRESH uuid
+// (the old uuid now belongs to the renamed tag) and is never emitted to the
+// feed: snapshots exclude deleted rows and no client holds the uuid until a
+// recreate resurrects it.
+func (c *pushContext) tombstoneTagName(oldName, color string, excludeID int) error {
+	var existing int
+	err := c.tx.QueryRow(`SELECT id FROM tags WHERE user_id = $1 AND name = $2 AND id != $3 LIMIT 1`, c.userID, oldName, excludeID).Scan(&existing)
+	if err == nil {
+		return nil // live row or tombstone already present
+	}
+	if err != sql.ErrNoRows {
+		return fmt.Errorf("sync push: tombstone lookup (%s): %w", oldName, err)
+	}
+	now := time.Now().UTC()
+	if _, err := c.tx.Exec(`INSERT INTO tags (name, color, user_id, is_deleted, created_at, updated_at, version, sync_uuid) VALUES ($1, $2, $3, TRUE, $4, $4, 1, $5)`,
+		oldName, color, c.userID, now, uuid.New().String()); err != nil {
+		return fmt.Errorf("sync push: tombstone insert (%s): %w", oldName, err)
+	}
+	return nil
+}
+
 func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	var data models.SyncTagData
 	if err := json.Unmarshal(ch.Data, &data); err != nil {
@@ -861,7 +892,8 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	var id, version int
 	var existingUUID string
 	var rowDeleted bool
-	err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &existingUUID, &rowDeleted)
+	var currentName string
+	err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted, name FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &existingUUID, &rowDeleted, &currentName)
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("SYNC-DEBUG tag select err (uuid=%s): %v", ch.RowUUID, err)
 	}
@@ -873,7 +905,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 		var mergedVersion int
 		var mergedUUID string
 		var mergedDeleted bool
-		err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted FROM tags WHERE user_id = $1 AND name = $2`, c.userID, data.Name).Scan(&mergedID, &mergedVersion, &mergedUUID, &mergedDeleted)
+		err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted FROM tags WHERE user_id = $1 AND name = $2 ORDER BY is_deleted ASC, id ASC`, c.userID, data.Name).Scan(&mergedID, &mergedVersion, &mergedUUID, &mergedDeleted)
 		if err == nil {
 			if mergedDeleted && !c.deletedInBatch[mergedUUID] {
 				// The tag was deleted server-side (e.g. by another device); the
@@ -945,6 +977,14 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 		return nil
 	}
 	newVersion := max(version, ch.BaseVersion) + 1
+	// Rename: upsert the new name AND keep a tombstone for the renamed-away
+	// name (bead 8g0) — see tombstoneTagName. The tombstone is inserted before
+	// the rename applies so a tombstone failure aborts the whole change.
+	if data.Name != currentName && !data.IsDeleted {
+		if err := c.tombstoneTagName(currentName, data.Color, id); err != nil {
+			return c.dbErr(SyncCollectionTags, ch, "rename tombstone", err)
+		}
+	}
 	if _, err := c.tx.Exec(`UPDATE tags SET name = $1, color = $2, is_deleted = $3, updated_at = $4, version = $5 WHERE id = $6`, data.Name, data.Color, data.IsDeleted, time.Now().UTC(), newVersion, id); err != nil {
 		return c.dbErr(SyncCollectionTags, ch, "update", err)
 	}
