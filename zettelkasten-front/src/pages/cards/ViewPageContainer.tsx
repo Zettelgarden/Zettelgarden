@@ -254,6 +254,21 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     }
   }, [cardData.viewingCard]);
 
+  // Filter out related cards that already appear in the card's references so
+  // the Related Cards list doesn't duplicate the Linked references section.
+  // References can change after the related-cards fetch (e.g. adding a
+  // backlink from the +Ref button), so filter on every render rather than
+  // relying on the backend's initial exclusion alone.
+  const referenceCardIds = new Set(
+    [
+      ...cardData.categorizedReferences.bidirectional,
+      ...cardData.categorizedReferences.incoming,
+      ...cardData.categorizedReferences.outgoing,
+    ].map((ref) => ref.id),
+  );
+  const filteredRelatedCards =
+    relatedCards?.filter((rc) => !referenceCardIds.has(rc.card.id)) ?? null;
+
   // Return data, setters, and actions
   return {
     data: {
@@ -265,7 +280,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       categorizedReferences: cardData.categorizedReferences,
       summaries: cardData.summaries,
       latestSummary: cardData.latestSummary,
-      relatedCards,
+      relatedCards: filteredRelatedCards,
       showingSummary,
       showIdDiscovery,
       error,
