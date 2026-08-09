@@ -8,7 +8,9 @@ import electron from 'vite-plugin-electron';
 // required for CI/Docker where dist/ is gitignored. The engine's sqlite.ts
 // (better-sqlite3) is never imported by the frontend, so no native module
 // leaks into the web bundle.
-const syncEngineSrc = fileURLToPath(new URL('../sync-engine/src', import.meta.url));
+const syncEngineSrc = fileURLToPath(
+  new URL('../sync-engine/src', import.meta.url),
+);
 
 // https://vitejs.dev/config/
 export default defineConfig({

@@ -21,13 +21,20 @@ function statusStyle(state: SyncProgress['state']) {
   }
 }
 
-export function SyncStatusIndicator({ collapsed = false }: { collapsed?: boolean }) {
+export function SyncStatusIndicator({
+  collapsed = false,
+}: {
+  collapsed?: boolean;
+}) {
   const { desktop, progress } = useSync();
   if (!desktop) return null;
 
   const { dot, label } = statusStyle(progress.state);
   const pending = progress.pendingChanges ?? 0;
-  const title = pending > 0 ? `${label} · ${pending} pending change${pending === 1 ? '' : 's'}` : label;
+  const title =
+    pending > 0
+      ? `${label} · ${pending} pending change${pending === 1 ? '' : 's'}`
+      : label;
 
   if (collapsed) {
     return (

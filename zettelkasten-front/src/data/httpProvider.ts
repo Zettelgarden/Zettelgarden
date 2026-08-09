@@ -40,7 +40,9 @@ export function processCardFromAPI(card: Card): Card {
     tasks:
       card.tasks?.map((task) => ({
         ...task,
-        scheduled_date: task.scheduled_date ? new Date(task.scheduled_date) : null,
+        scheduled_date: task.scheduled_date
+          ? new Date(task.scheduled_date)
+          : null,
         due_date: task.due_date ? new Date(task.due_date) : null,
         created_at: new Date(task.created_at),
         updated_at: new Date(task.updated_at),
@@ -81,7 +83,9 @@ async function saveExistingCard(card: Card): Promise<Card> {
 
 async function deleteCard(id: number): Promise<Card | null> {
   const encodedId = encodeURIComponent(id);
-  const { response, data } = await apiClient.delete<Card>(`/cards/${encodedId}`);
+  const { response, data } = await apiClient.delete<Card>(
+    `/cards/${encodedId}`,
+  );
   if (response.status === 204) {
     return null;
   }
@@ -126,7 +130,10 @@ async function getCardTasks(cardId: string | number): Promise<any[]> {
   }));
 }
 
-async function getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsResponse> {
+async function getUnsortedCards(
+  page = 1,
+  perPage = 10,
+): Promise<UnsortedCardsResponse> {
   const { data } = await apiClient.get<UnsortedCardsResponse>(
     `/cards/unsorted?page=${page}&per_page=${perPage}`,
   );
@@ -156,11 +163,12 @@ async function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
     offset = 0,
     allTasks: Task[] = [],
   ): Promise<Task[]> => {
-    const requestParams: Record<string, string | number | boolean | undefined> = {
-      limit: 100,
-      offset,
-      completed: showCompleted,
-    };
+    const requestParams: Record<string, string | number | boolean | undefined> =
+      {
+        limit: 100,
+        offset,
+        completed: showCompleted,
+      };
     if (scheduledDate) {
       requestParams.scheduled_date = scheduledDate.toISOString().split('T')[0];
     }
@@ -177,7 +185,9 @@ async function fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
     if (!tasksResponse.tasks) {
       return allTasks;
     }
-    const formattedTasks = tasksResponse.tasks.map((task) => processTaskFromAPI(task));
+    const formattedTasks = tasksResponse.tasks.map((task) =>
+      processTaskFromAPI(task),
+    );
     const combinedTasks = [...allTasks, ...formattedTasks];
     if (tasksResponse.tasks.length < tasksResponse.limit) {
       return combinedTasks;
@@ -199,13 +209,18 @@ async function saveNewTask(task: Task): Promise<Task> {
 }
 
 async function saveExistingTask(task: Task): Promise<Task> {
-  const { data } = await apiClient.put<Task>(`/tasks/${encodeURIComponent(task.id)}`, task);
+  const { data } = await apiClient.put<Task>(
+    `/tasks/${encodeURIComponent(task.id)}`,
+    task,
+  );
   return data;
 }
 
 async function deleteTask(id: number): Promise<Task | null> {
   const encodedId = encodeURIComponent(id);
-  const { response, data } = await apiClient.delete<Task>(`/tasks/${encodedId}`);
+  const { response, data } = await apiClient.delete<Task>(
+    `/tasks/${encodedId}`,
+  );
   if (response.status === 204) {
     return null;
   }

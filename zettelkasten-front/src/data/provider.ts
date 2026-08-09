@@ -46,7 +46,10 @@ export interface DataProvider {
   getCardChildren(cardId: string): Promise<PartialCard[]>;
   getCardTags(cardId: string): Promise<any[]>;
   getCardTasks(cardId: string | number): Promise<any[]>;
-  getUnsortedCards(page: number, perPage: number): Promise<UnsortedCardsResponse>;
+  getUnsortedCards(
+    page: number,
+    perPage: number,
+  ): Promise<UnsortedCardsResponse>;
   getNextRootId(): Promise<NextIdResponse>;
 
   // ---- tasks (offline-writable) ----

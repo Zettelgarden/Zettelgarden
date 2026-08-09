@@ -12,7 +12,10 @@
 import { isNetworkError } from '../api/errors';
 import { isDesktopApp } from './tauriStorageAdapter';
 
-export async function graceful<T>(fallback: T, fn: () => Promise<T>): Promise<T> {
+export async function graceful<T>(
+  fallback: T,
+  fn: () => Promise<T>,
+): Promise<T> {
   if (!isDesktopApp()) return fn();
   try {
     return await fn();

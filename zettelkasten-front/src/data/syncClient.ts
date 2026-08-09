@@ -10,7 +10,11 @@
 import { SyncEngine } from '@zettelgarden/sync-engine/engine';
 import { HttpTransport } from '@zettelgarden/sync-engine/http';
 import type { SyncProgress } from '@zettelgarden/sync-engine/types';
-import { TauriStorageAdapter, tauriInvoke, isDesktopApp } from './tauriStorageAdapter';
+import {
+  TauriStorageAdapter,
+  tauriInvoke,
+  isDesktopApp,
+} from './tauriStorageAdapter';
 
 export interface SyncClient {
   engine: SyncEngine;

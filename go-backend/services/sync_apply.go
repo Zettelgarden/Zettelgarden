@@ -398,6 +398,14 @@ func (c *pushContext) ignored(ch models.SyncChange) {
 	})
 }
 
+// dbErr turns a failed SQL op into a hard push error (rollback + 500): the
+// client keeps the outbox entry and retries with backoff. A transient lock
+// (SQLITE_BUSY) or any other DB failure must never silently drop a user's
+// edit the way 'ignored' (which means "nothing to do") would.
+func (c *pushContext) dbErr(collection string, ch models.SyncChange, op string, err error) error {
+	return fmt.Errorf("sync push %s %s (uuid=%s): %w", collection, op, ch.RowUUID, err)
+}
+
 // currentRow returns the live columns of a synced row as JSON, or nil if the
 // row is missing. Used for conflict responses so the client can reconcile.
 func (c *pushContext) currentRow(collection string, serverID int) []byte {
@@ -520,8 +528,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 			data.CardID, data.Title, data.Body, data.Link, c.userID,
 			data.CardSchemaID, data.StructuredData, now, ch.RowUUID, data.IsDeleted)
 		if err != nil {
-			c.ignored(ch)
-			return nil
+			return c.dbErr(SyncCollectionCards, ch, "create", err)
 		}
 		newID, _ := res.LastInsertId()
 		id = int(newID)
@@ -539,8 +546,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 		return nil
 	}
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionCards, ch, "lookup", err)
 	}
 
 	// Update path with optimistic concurrency. A row soft-deleted earlier in
@@ -574,8 +580,7 @@ func (c *pushContext) applyCardUpsert(ch models.SyncChange) error {
 		WHERE id = $10 AND user_id = $11`,
 		data.CardID, data.Title, data.Body, data.Link, data.CardSchemaID, data.StructuredData, data.IsDeleted, time.Now().UTC(), newVersion, id, c.userID)
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionCards, ch, "update", err)
 	}
 	// A resurrection re-adds the row the batch's delete removed from the
 	// user's count (matching the create path).
@@ -601,8 +606,7 @@ func (c *pushContext) applyCardDelete(ch models.SyncChange) error {
 		return nil
 	}
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionCards, ch, "delete lookup", err)
 	}
 	if ch.BaseVersion < version {
 		c.retryOrConflict(SyncCollectionCards, ch, id, version)
@@ -622,13 +626,11 @@ func (c *pushContext) applyCardDelete(ch models.SyncChange) error {
 	// Same derived-data cleanup as DeleteCard (facts, fact_card_junction,
 	// entity_card_junction) so both transports leave identical state.
 	if err := cleanupCardDerivedData(c.tx, c.userID, id); err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionCards, ch, "delete derived-data cleanup", err)
 	}
 	newVersion := version + 1
 	if _, err := c.tx.Exec(`UPDATE cards SET is_deleted = TRUE, updated_at = $1, version = $2 WHERE id = $3`, time.Now().UTC(), newVersion, id); err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionCards, ch, "delete", err)
 	}
 	DecrementUserCardCount(c.tx, c.userID)
 	deleteCardTypesense(id)
@@ -684,8 +686,7 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) error {
 			data.Title, data.Description, data.Priority, data.Status, data.IsComplete,
 			data.IsDeleted, data.ReminderTime, data.ReminderSent, parentTaskID, data.SortOrder, ch.RowUUID)
 		if err != nil {
-			c.ignored(ch)
-			return nil
+			return c.dbErr(SyncCollectionTasks, ch, "create", err)
 		}
 		newID, _ := res.LastInsertId()
 		id = int(newID)
@@ -703,8 +704,7 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) error {
 		return nil
 	}
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTasks, ch, "lookup", err)
 	}
 
 	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
@@ -728,8 +728,7 @@ func (c *pushContext) applyTaskUpsert(ch models.SyncChange) error {
 		data.IsDeleted, data.ReminderTime, data.ReminderSent, parentTaskID, data.SortOrder,
 		newVersion, id, c.userID)
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTasks, ch, "update", err)
 	}
 	// A resurrection re-adds the row the batch's delete removed from the
 	// user's count (matching the create path).
@@ -754,8 +753,7 @@ func (c *pushContext) applyTaskDelete(ch models.SyncChange) error {
 		return nil
 	}
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTasks, ch, "delete lookup", err)
 	}
 	if ch.BaseVersion < version {
 		c.retryOrConflict(SyncCollectionTasks, ch, id, version)
@@ -763,8 +761,7 @@ func (c *pushContext) applyTaskDelete(ch models.SyncChange) error {
 	}
 	newVersion := version + 1
 	if _, err := c.tx.Exec(`UPDATE tasks SET is_deleted = TRUE, updated_at = $1, version = $2 WHERE id = $3`, time.Now().UTC(), newVersion, id); err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTasks, ch, "delete", err)
 	}
 	DecrementUserTaskCount(c.tx, c.userID)
 	c.deletedInBatch[ch.RowUUID] = true
@@ -808,6 +805,9 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	var existingUUID string
 	var rowDeleted bool
 	err := c.tx.QueryRow(`SELECT id, version, sync_uuid, is_deleted FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&id, &version, &existingUUID, &rowDeleted)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("SYNC-DEBUG tag select err (uuid=%s): %v", ch.RowUUID, err)
+	}
 	if err == sql.ErrNoRows {
 		// Name-keyed merge: CreateTag semantics — find (user_id, name) including
 		// soft-deleted rows and reuse, so two devices creating "Work" offline
@@ -824,8 +824,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 				// REST CreateTag — never merge onto a tombstone. No lost edit.
 				newVersion := max(mergedVersion, ch.BaseVersion) + 1
 				if _, err := c.tx.Exec(`UPDATE tags SET name = $1, color = $2, is_deleted = $3, updated_at = $4, version = $5 WHERE id = $6`, data.Name, data.Color, data.IsDeleted, time.Now().UTC(), newVersion, mergedID); err != nil {
-					c.ignored(ch)
-					return nil
+					return c.dbErr(SyncCollectionTags, ch, "merge resurrect", err)
 				}
 				if err := c.emit(SyncCollectionTags, mergedUUID, SyncOpUpsert, newVersion); err != nil {
 					return err
@@ -850,8 +849,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 			// apply it onto the merged row, keeping the version monotonic.
 			newVersion := max(mergedVersion, ch.BaseVersion) + 1
 			if _, err := c.tx.Exec(`UPDATE tags SET name = $1, color = $2, is_deleted = $3, updated_at = $4, version = $5 WHERE id = $6`, data.Name, data.Color, data.IsDeleted, time.Now().UTC(), newVersion, mergedID); err != nil {
-				c.ignored(ch)
-				return nil
+				return c.dbErr(SyncCollectionTags, ch, "merge apply", err)
 			}
 			if err := c.emit(SyncCollectionTags, mergedUUID, SyncOpUpsert, newVersion); err != nil {
 				return err
@@ -861,13 +859,11 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 		}
 		// No row by name either: create with the client's uuid.
 		if _, err := c.tx.Exec(`INSERT INTO tags (name, color, user_id, is_deleted, created_at, updated_at, version, sync_uuid) VALUES ($1, $2, $3, $4, $5, $5, 1, $6)`, data.Name, data.Color, c.userID, data.IsDeleted, time.Now().UTC(), ch.RowUUID); err != nil {
-			c.ignored(ch)
-			return nil
+			return c.dbErr(SyncCollectionTags, ch, "create", err)
 		}
 		var newID int
 		if err := c.tx.QueryRow(`SELECT id FROM tags WHERE sync_uuid = $1 AND user_id = $2`, ch.RowUUID, c.userID).Scan(&newID); err != nil {
-			c.ignored(ch)
-			return nil
+			return c.dbErr(SyncCollectionTags, ch, "create lookup", err)
 		}
 		if err := c.emit(SyncCollectionTags, ch.RowUUID, SyncOpUpsert, 1); err != nil {
 			return err
@@ -876,8 +872,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 		return nil
 	}
 	if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTags, ch, "lookup", err)
 	}
 
 	if ch.BaseVersion == 0 && !c.deletedInBatch[ch.RowUUID] {
@@ -894,8 +889,7 @@ func (c *pushContext) applyTagUpsert(ch models.SyncChange) error {
 	}
 	newVersion := max(version, ch.BaseVersion) + 1
 	if _, err := c.tx.Exec(`UPDATE tags SET name = $1, color = $2, is_deleted = $3, updated_at = $4, version = $5 WHERE id = $6`, data.Name, data.Color, data.IsDeleted, time.Now().UTC(), newVersion, id); err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTags, ch, "update", err)
 	}
 	if err := c.emit(SyncCollectionTags, ch.RowUUID, SyncOpUpsert, newVersion); err != nil {
 		return err
@@ -919,8 +913,7 @@ func (c *pushContext) applyTagDelete(ch models.SyncChange) error {
 		_ = json.Unmarshal(ch.Data, &data)
 		if data.Name != "" {
 			if err := c.tx.QueryRow(`SELECT id, version, sync_uuid FROM tags WHERE user_id = $1 AND name = $2`, c.userID, data.Name).Scan(&id, &version, &existingUUID); err != nil {
-				c.ignored(ch)
-				return nil
+				return c.dbErr(SyncCollectionTags, ch, "delete name lookup", err)
 			}
 			ch.RowUUID = existingUUID
 		} else {
@@ -928,8 +921,7 @@ func (c *pushContext) applyTagDelete(ch models.SyncChange) error {
 			return nil
 		}
 	} else if err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTags, ch, "delete lookup", err)
 	}
 	// The feed/tombstone use the canonical server uuid (existingUUID); every
 	// RESULT must be keyed on the client's uuid so the engine drops and
@@ -941,8 +933,7 @@ func (c *pushContext) applyTagDelete(ch models.SyncChange) error {
 	}
 	newVersion := version + 1
 	if _, err := c.tx.Exec(`UPDATE tags SET is_deleted = TRUE, updated_at = $1, version = $2 WHERE id = $3`, time.Now().UTC(), newVersion, id); err != nil {
-		c.ignored(ch)
-		return nil
+		return c.dbErr(SyncCollectionTags, ch, "delete", err)
 	}
 	c.deletedInBatch[existingUUID] = true
 	if err := c.emit(SyncCollectionTags, existingUUID, SyncOpDelete, newVersion); err != nil {

@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	sqlite "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
+
 	"go-backend/models"
 	"go-backend/services"
 )
@@ -309,25 +312,47 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Apply the batch inside ONE transaction, retrying on SQLITE_BUSY: the
+	// transaction reads before it writes, and a concurrent writer (background
+	// job runner, another push) can hold the write lock long enough that the
+	// upgrade fails even with busy_timeout. A retry is safe — a busy failure
+	// rolled the whole batch back, so nothing partial was committed.
+	const pushBusyRetries = 6
+	var results []models.SyncPushResult
+	var cursor int64
+	var lost int
 	tx, err := s.BeginTx()
 	if err != nil {
 		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
 		return
 	}
-	results, cursor, lost, err := services.ApplySyncPush(tx, userID, &req)
-	if err != nil {
+	for attempt := 0; ; attempt++ {
+		results, cursor, lost, err = services.ApplySyncPush(tx, userID, &req)
+		if err == nil {
+			break
+		}
 		tx.Rollback()
-		log.Printf("sync push apply: %v", err)
-		// Schema/validation rejections (bead s2l) are client errors: surface
-		// the message so the client knows why the batch was refused instead of
-		// a generic 500.
-		var vErr *services.ValidationError
-		if errors.As(err, &vErr) {
-			http.Error(w, vErr.Msg, http.StatusBadRequest)
+		var sqliteErr *sqlite.Error
+		isBusy := errors.As(err, &sqliteErr) && sqliteErr.Code() == int(sqlite3.SQLITE_BUSY)
+		if !isBusy || attempt >= pushBusyRetries {
+			log.Printf("sync push apply: %v", err)
+			// Schema/validation rejections (bead s2l) are client errors:
+			// surface the message so the client knows why the batch was
+			// refused instead of a generic 500.
+			var vErr *services.ValidationError
+			if errors.As(err, &vErr) {
+				http.Error(w, vErr.Msg, http.StatusBadRequest)
+				return
+			}
+			http.Error(w, "unable to apply push", http.StatusInternalServerError)
 			return
 		}
-		http.Error(w, "unable to apply push", http.StatusInternalServerError)
-		return
+		log.Printf("sync push busy (attempt %d/%d): %v", attempt+1, pushBusyRetries, err)
+		time.Sleep(time.Duration(25*(1<<attempt)) * time.Millisecond)
+		if tx, err = s.BeginTx(); err != nil {
+			http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+			return
+		}
 	}
 	// Retention heartbeat + opportunistic prune, inside the same tx so the
 	// reported cursor is never ahead of the applied batch.

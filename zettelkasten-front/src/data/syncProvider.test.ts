@@ -8,7 +8,12 @@
 import { describe, it, expect } from 'vitest';
 import { SyncEngine } from '@zettelgarden/sync-engine/engine';
 import { InMemoryAdapter } from '@zettelgarden/sync-engine/storage';
-import type { SyncTransport, SnapshotResponse, ChangesResponse, PushResponse } from '@zettelgarden/sync-engine/types';
+import type {
+  SyncTransport,
+  SnapshotResponse,
+  ChangesResponse,
+  PushResponse,
+} from '@zettelgarden/sync-engine/types';
 import { SyncDataProvider } from '../data/syncProvider';
 import { emptyTask } from '../models/Task';
 
@@ -16,10 +21,15 @@ let idCounter = 1000;
 
 /** Fake transport: snapshot of a server with seeded rows; push assigns ids
  * and returns applied results (minimal, no LWW). */
-function fakeTransport(seed: Record<string, Record<string, unknown>[]> = {}): SyncTransport & {
+function fakeTransport(
+  seed: Record<string, Record<string, unknown>[]> = {},
+): SyncTransport & {
   serverRows: () => Record<string, unknown>[];
 } {
-  const server: Record<string, { rowUuid: string; version: number; data: Record<string, unknown> }[]> = {};
+  const server: Record<
+    string,
+    { rowUuid: string; version: number; data: Record<string, unknown> }[]
+  > = {};
   for (const [collection, rows] of Object.entries(seed)) {
     server[collection] = rows.map((data) => ({
       rowUuid: data.sync_uuid as string,
@@ -31,7 +41,9 @@ function fakeTransport(seed: Record<string, Record<string, unknown>[]> = {}): Sy
 
   return {
     serverRows: () =>
-      Object.values(server).flat().map((r) => ({ ...r.data, sync_uuid: r.rowUuid })),
+      Object.values(server)
+        .flat()
+        .map((r) => ({ ...r.data, sync_uuid: r.rowUuid })),
     async snapshot(): Promise<SnapshotResponse> {
       const collections = {} as SnapshotResponse['collections'];
       for (const [c, rows] of Object.entries(server)) {
@@ -47,18 +59,41 @@ function fakeTransport(seed: Record<string, Record<string, unknown>[]> = {}): Sy
     async changes(): Promise<ChangesResponse> {
       return { cursor, rows: [], hasMore: false };
     },
-    async push(req: PushResponse extends never ? never : any): Promise<PushResponse> {
+    async push(
+      req: PushResponse extends never ? never : any,
+    ): Promise<PushResponse> {
       const results: PushResponse['results'] = [];
       for (const change of req.changes) {
         if (change.op === 'delete') {
-          const i = server[change.collection]?.findIndex((r) => r.rowUuid === change.row_uuid);
-          if (i !== undefined && i >= 0) server[change.collection]?.splice(i, 1);
-          results.push({ rowUuid: change.row_uuid, status: 'applied', serverVersion: change.base_version + 1 });
+          const i = server[change.collection]?.findIndex(
+            (r) => r.rowUuid === change.row_uuid,
+          );
+          if (i !== undefined && i >= 0)
+            server[change.collection]?.splice(i, 1);
+          results.push({
+            rowUuid: change.row_uuid,
+            status: 'applied',
+            serverVersion: change.base_version + 1,
+          });
         } else {
           const id = ++idCounter;
-          const data = { ...(change.data ?? {}), id, version: change.base_version + 1 };
-          (server[change.collection] ??= []).push({ rowUuid: change.row_uuid, version: change.base_version + 1, data });
-          results.push({ rowUuid: change.row_uuid, status: 'applied', serverId: id, serverVersion: change.base_version + 1, data });
+          const data = {
+            ...(change.data ?? {}),
+            id,
+            version: change.base_version + 1,
+          };
+          (server[change.collection] ??= []).push({
+            rowUuid: change.row_uuid,
+            version: change.base_version + 1,
+            data,
+          });
+          results.push({
+            rowUuid: change.row_uuid,
+            status: 'applied',
+            serverId: id,
+            serverVersion: change.base_version + 1,
+            data,
+          });
         }
       }
       cursor++;
@@ -76,17 +111,29 @@ function makeProvider() {
 }
 
 function cardData(overrides: Record<string, unknown> = {}) {
-  return { title: 't', body: 'b', card_id: 't', link: '', is_deleted: false, ...overrides };
+  return {
+    title: 't',
+    body: 'b',
+    card_id: 't',
+    link: '',
+    is_deleted: false,
+    ...overrides,
+  };
 }
 
 describe('SyncDataProvider (offline data layer)', () => {
   it('saveNewCard assigns a negative temp id and writes the mirror + outbox', async () => {
     const { provider, engine, storage } = makeProvider();
-    const saved = await provider.saveNewCard({ ...cardData() as any, id: -1 } as any);
+    const saved = await provider.saveNewCard({
+      ...(cardData() as any),
+      id: -1,
+    } as any);
     expect(saved.id).toBeLessThan(0); // temp id
     expect(await engine.pendingChanges()).toBe(1);
 
-    const row = (await storage.getRow('cards', 'x')) ?? (await storage.allRows('cards'))[0];
+    const row =
+      (await storage.getRow('cards', 'x')) ??
+      (await storage.allRows('cards'))[0];
     expect(row!.data.title).toBe('t');
   });
 
@@ -101,7 +148,11 @@ describe('SyncDataProvider (offline data layer)', () => {
   it('saveExistingCard on a temp-id card updates the same row (no dupes)', async () => {
     const { provider, engine, storage } = makeProvider();
     const saved = await provider.saveNewCard(cardData() as any);
-    await provider.saveExistingCard({ ...saved, title: 'edited', body: 'b2' } as any);
+    await provider.saveExistingCard({
+      ...saved,
+      title: 'edited',
+      body: 'b2',
+    } as any);
     expect(await engine.pendingChanges()).toBe(1); // coalesced, not 2
 
     const row = (await storage.allRows('cards'))[0];
@@ -126,7 +177,11 @@ describe('SyncDataProvider (offline data layer)', () => {
   it('saveNewTask translates card_pk into card_pk_uuid for offline FK resolution', async () => {
     const { provider, storage } = makeProvider();
     const card = await provider.saveNewCard(cardData() as any);
-    const task = { ...emptyTask, title: 'offline task', card_pk: card.id as number };
+    const task = {
+      ...emptyTask,
+      title: 'offline task',
+      card_pk: card.id as number,
+    };
     const savedTask = await provider.saveNewTask(task);
 
     expect(savedTask.id).toBeLessThan(0);
@@ -138,8 +193,16 @@ describe('SyncDataProvider (offline data layer)', () => {
 
   it('fetchTasks filters the mirror offline', async () => {
     const { provider, engine } = makeProvider();
-    const t1 = await provider.saveNewTask({ ...emptyTask, title: 'open', is_complete: false } as any);
-    await provider.saveNewTask({ ...emptyTask, title: 'done', is_complete: true } as any);
+    const t1 = await provider.saveNewTask({
+      ...emptyTask,
+      title: 'open',
+      is_complete: false,
+    } as any);
+    await provider.saveNewTask({
+      ...emptyTask,
+      title: 'done',
+      is_complete: true,
+    } as any);
 
     const open = await provider.fetchTasks({ showCompleted: false });
     expect(open.map((t) => t.id)).toEqual([t1.id]);

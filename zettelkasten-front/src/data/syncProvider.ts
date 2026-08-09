@@ -84,7 +84,10 @@ export class SyncDataProvider implements DataProvider {
     return map;
   }
 
-  private async saveAliases(collection: 'cards' | 'tasks', map: AliasMap): Promise<void> {
+  private async saveAliases(
+    collection: 'cards' | 'tasks',
+    map: AliasMap,
+  ): Promise<void> {
     const key = collection === 'cards' ? CARD_ALIAS_KEY : TASK_ALIAS_KEY;
     this.cachedAliases.set(key, map);
     await this.engine.setMeta(key, JSON.stringify(map));
@@ -101,7 +104,9 @@ export class SyncDataProvider implements DataProvider {
   }
 
   /** Resolves a rowUuid for a UI card id (int temp/real, card_id, or uuid). */
-  private async resolveCardUuid(id: string | number): Promise<string | undefined> {
+  private async resolveCardUuid(
+    id: string | number,
+  ): Promise<string | undefined> {
     const s = String(id);
     // A uuid passed straight through.
     if (!NUMERIC_ID_RE.test(s) && s.length > 20) {
@@ -134,7 +139,10 @@ export class SyncDataProvider implements DataProvider {
   }
 
   /** Canonical UI id for a row: real server id once synced, else temp id. */
-  private async canonicalId(collection: 'cards' | 'tasks', rowUuid: string): Promise<number> {
+  private async canonicalId(
+    collection: 'cards' | 'tasks',
+    rowUuid: string,
+  ): Promise<number> {
     const row = await this.engine.getRow(collection, rowUuid);
     if (!row) return 0;
     const serverId = row.data.id;
@@ -151,7 +159,10 @@ export class SyncDataProvider implements DataProvider {
   private async cardFromRow(row: MirrorRow): Promise<Card> {
     const d = row.data;
     const id = await this.canonicalId('cards', row.rowUuid);
-    const tags = await this.tagsForBody(d.body as string, d.parent_id as number);
+    const tags = await this.tagsForBody(
+      d.body as string,
+      d.parent_id as number,
+    );
     const card: Card = {
       id,
       card_id: (d.card_id as string) ?? '',
@@ -163,10 +174,18 @@ export class SyncDataProvider implements DataProvider {
       created_at: parseSyncDate(d.created_at) ?? new Date(0),
       updated_at: parseSyncDate(d.updated_at) ?? new Date(0),
       parent_id: Number(d.parent_id ?? 0),
-      parent: (await this.parentFor(d.parent_id as number)) ?? ({
-        id: 0, card_id: '', user_id: 0, title: '', parent_id: 0,
-        created_at: new Date(0), updated_at: new Date(0), tags: [],
-      } as PartialCard),
+      parent:
+        (await this.parentFor(d.parent_id as number)) ??
+        ({
+          id: 0,
+          card_id: '',
+          user_id: 0,
+          title: '',
+          parent_id: 0,
+          created_at: new Date(0),
+          updated_at: new Date(0),
+          tags: [],
+        } as PartialCard),
       files: [],
       children: await this.childrenFor(id, row.rowUuid),
       references: [],
@@ -203,9 +222,14 @@ export class SyncDataProvider implements DataProvider {
 
   /** Mirror cards whose parent_id points at this card (or temp-id children
    * that reference an offline parent by card_id prefix — not yet linked). */
-  private async childrenFor(id: number, rowUuid: string): Promise<PartialCard[]> {
+  private async childrenFor(
+    id: number,
+    rowUuid: string,
+  ): Promise<PartialCard[]> {
     const rows = await this.engine.query('cards');
-    const kids = rows.filter((r) => r.rowUuid !== rowUuid && Number(r.data.parent_id) === id);
+    const kids = rows.filter(
+      (r) => r.rowUuid !== rowUuid && Number(r.data.parent_id) === id,
+    );
     const out: PartialCard[] = [];
     for (const row of kids) out.push(await this.partialFromRow(row));
     return out;
@@ -213,9 +237,15 @@ export class SyncDataProvider implements DataProvider {
 
   /** Offline tag list for a card: #tags from its body + parent chain,
    * resolved against the mirror tags collection for id/color. */
-  private async tagsForBody(body: string | undefined, parentId: number): Promise<Tag[]> {
+  private async tagsForBody(
+    body: string | undefined,
+    parentId: number,
+  ): Promise<Tag[]> {
     const names = new Set<string>();
-    const collect = async (text: string | undefined, depth: number): Promise<void> => {
+    const collect = async (
+      text: string | undefined,
+      depth: number,
+    ): Promise<void> => {
       if (!text || depth > 10) return;
       for (const m of text.matchAll(/(^|\s)#([a-zA-Z0-9_-]+)/g)) {
         names.add(m[2]);
@@ -271,7 +301,8 @@ export class SyncDataProvider implements DataProvider {
       is_deleted: !!d.is_deleted,
       reminder_time: parseSyncDate(d.reminder_time),
       reminder_sent: !!d.reminder_sent,
-      parent_task_id: d.parent_task_id != null ? Number(d.parent_task_id) : null,
+      parent_task_id:
+        d.parent_task_id != null ? Number(d.parent_task_id) : null,
       sort_order: d.sort_order != null ? Number(d.sort_order) : null,
     };
   }
@@ -351,7 +382,10 @@ export class SyncDataProvider implements DataProvider {
     if (!uuid) return [];
     const row = await this.engine.getRow('cards', uuid);
     if (!row) return [];
-    return this.tagsForBody(row.data.body as string, Number(row.data.parent_id ?? 0));
+    return this.tagsForBody(
+      row.data.body as string,
+      Number(row.data.parent_id ?? 0),
+    );
   }
 
   async getCardTasks(cardId: string | number): Promise<any[]> {
@@ -364,7 +398,10 @@ export class SyncDataProvider implements DataProvider {
     return Promise.all(rows.map((r) => this.taskFromRow(r)));
   }
 
-  async getUnsortedCards(page = 1, perPage = 10): Promise<UnsortedCardsResponse> {
+  async getUnsortedCards(
+    page = 1,
+    perPage = 10,
+  ): Promise<UnsortedCardsResponse> {
     const rows = (await this.engine.query('cards')).filter(
       (r) => !r.data.card_id && !r.data.is_deleted,
     );
@@ -405,7 +442,8 @@ export class SyncDataProvider implements DataProvider {
       is_deleted: !!card.is_deleted,
     };
     if (card.schema_id != null) data.card_schema_id = Number(card.schema_id);
-    if (card.structured_data != null) data.structured_data = card.structured_data;
+    if (card.structured_data != null)
+      data.structured_data = card.structured_data;
     return data;
   }
 
@@ -445,8 +483,12 @@ export class SyncDataProvider implements DataProvider {
   }
 
   async fetchTasks(params: FetchTasksParams = {}): Promise<Task[]> {
-    const { showCompleted = false, scheduledDate = null, completedDate = null, status = null } =
-      params;
+    const {
+      showCompleted = false,
+      scheduledDate = null,
+      completedDate = null,
+      status = null,
+    } = params;
     const rows = await this.engine.query('tasks');
     const out: Task[] = [];
     for (const row of rows) {
@@ -454,9 +496,12 @@ export class SyncDataProvider implements DataProvider {
       if (task.is_deleted) continue;
       if (!showCompleted && task.is_complete) continue;
       if (status && task.status !== status) continue;
-      const day = (d: Date | null) => (d ? d.toISOString().split('T')[0] : null);
-      if (scheduledDate && day(task.scheduled_date) !== day(scheduledDate)) continue;
-      if (completedDate && day(task.completed_at) !== day(completedDate)) continue;
+      const day = (d: Date | null) =>
+        d ? d.toISOString().split('T')[0] : null;
+      if (scheduledDate && day(task.scheduled_date) !== day(scheduledDate))
+        continue;
+      if (completedDate && day(task.completed_at) !== day(completedDate))
+        continue;
       out.push(task);
     }
     out.sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
@@ -504,7 +549,9 @@ export class SyncDataProvider implements DataProvider {
   // ---- tags --------------------------------------------------------------
 
   async fetchUserTags(): Promise<Tag[]> {
-    const rows = (await this.engine.query('tags')).filter((r) => !r.data.is_deleted);
+    const rows = (await this.engine.query('tags')).filter(
+      (r) => !r.data.is_deleted,
+    );
     return rows
       .map((r) => this.tagFromRow(r))
       .sort((a, b) => a.name.localeCompare(b.name));

@@ -298,25 +298,28 @@ function processPartialCards(cards: PartialCard[]): PartialCard[] {
 export async function getCardReferences(
   cardId: string,
 ): Promise<CategorizedReferences> {
-  return graceful<CategorizedReferences>(EMPTY_REFERENCES as CategorizedReferences, async () => {
-    const { data: refs } = await apiClient.get<CategorizedReferences>(
-      `/cards/${encodeURIComponent(cardId)}/references`,
-    );
+  return graceful<CategorizedReferences>(
+    EMPTY_REFERENCES as CategorizedReferences,
+    async () => {
+      const { data: refs } = await apiClient.get<CategorizedReferences>(
+        `/cards/${encodeURIComponent(cardId)}/references`,
+      );
 
-    if (!refs) {
+      if (!refs) {
+        return {
+          bidirectional: [],
+          outgoing: [],
+          incoming: [],
+        };
+      }
+
       return {
-        bidirectional: [],
-        outgoing: [],
-        incoming: [],
+        bidirectional: processPartialCards(refs.bidirectional),
+        outgoing: processPartialCards(refs.outgoing),
+        incoming: processPartialCards(refs.incoming),
       };
-    }
-
-    return {
-      bidirectional: processPartialCards(refs.bidirectional),
-      outgoing: processPartialCards(refs.outgoing),
-      incoming: processPartialCards(refs.incoming),
-    };
-  });
+    },
+  );
 }
 /**
  * Get the next root card ID. Desktop: computed from the local mirror.
@@ -379,7 +382,9 @@ export async function getStarredCards(): Promise<Card[]> {
             due_date: task.due_date ? new Date(task.due_date) : null,
             created_at: new Date(task.created_at),
             updated_at: new Date(task.updated_at),
-            completed_at: task.completed_at ? new Date(task.completed_at) : null,
+            completed_at: task.completed_at
+              ? new Date(task.completed_at)
+              : null,
           })) || [],
         is_pinned: true, // Mark as starred since it's coming from the starred cards endpoint
       };

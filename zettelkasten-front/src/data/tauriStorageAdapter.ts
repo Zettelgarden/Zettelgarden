@@ -10,11 +10,19 @@
  */
 
 import type { StorageAdapter } from '@zettelgarden/sync-engine/storage';
-import type { Collection, MirrorRow, OutboxEntry, SyncProgress } from '@zettelgarden/sync-engine/types';
+import type {
+  Collection,
+  MirrorRow,
+  OutboxEntry,
+  SyncProgress,
+} from '@zettelgarden/sync-engine/types';
 
 /** Invokes a Tauri command via the internals bridge (the preload shim's
  * own invoke path; window.__TAURI__ is disabled with withGlobalTauri:false). */
-export function tauriInvoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+export function tauriInvoke<T = unknown>(
+  cmd: string,
+  args?: Record<string, unknown>,
+): Promise<T> {
   const internals = (window as any).__TAURI_INTERNALS__;
   if (!internals || typeof internals.invoke !== 'function') {
     return Promise.reject(new Error(`Tauri bridge unavailable for ${cmd}`));
@@ -81,8 +89,14 @@ export class TauriStorageAdapter implements StorageAdapter {
     await tauriInvoke('sync_exec', { sql, params });
   }
 
-  private async query(sql: string, params: unknown[] = []): Promise<Record<string, unknown>[]> {
-    const res = await tauriInvoke<Record<string, unknown>[]>('sync_query', { sql, params });
+  private async query(
+    sql: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown>[]> {
+    const res = await tauriInvoke<Record<string, unknown>[]>('sync_query', {
+      sql,
+      params,
+    });
     return res ?? [];
   }
 
@@ -106,7 +120,10 @@ export class TauriStorageAdapter implements StorageAdapter {
     }
   }
 
-  async getRow(collection: Collection, rowUuid: string): Promise<MirrorRow | undefined> {
+  async getRow(
+    collection: Collection,
+    rowUuid: string,
+  ): Promise<MirrorRow | undefined> {
     const rows = await this.query(
       'SELECT row_uuid, version, data FROM mirror_rows WHERE collection = ?1 AND row_uuid = ?2',
       [collection, rowUuid],
@@ -131,10 +148,10 @@ export class TauriStorageAdapter implements StorageAdapter {
   }
 
   async deleteRow(collection: Collection, rowUuid: string): Promise<void> {
-    await this.exec('DELETE FROM mirror_rows WHERE collection = ?1 AND row_uuid = ?2', [
-      collection,
-      rowUuid,
-    ]);
+    await this.exec(
+      'DELETE FROM mirror_rows WHERE collection = ?1 AND row_uuid = ?2',
+      [collection, rowUuid],
+    );
   }
 
   async allRows(collection: Collection): Promise<MirrorRow[]> {
@@ -159,14 +176,17 @@ export class TauriStorageAdapter implements StorageAdapter {
       rowUuid: r.row_uuid as string,
       op: r.op as 'upsert' | 'delete',
       baseVersion: r.base_version as number,
-      data: r.data ? (JSON.parse(r.data as string) as Record<string, unknown>) : undefined,
+      data: r.data
+        ? (JSON.parse(r.data as string) as Record<string, unknown>)
+        : undefined,
     }));
   }
 
   async hasPending(rowUuid: string): Promise<boolean> {
-    const rows = await this.query('SELECT 1 FROM sync_outbox WHERE row_uuid = ?1 LIMIT 1', [
-      rowUuid,
-    ]);
+    const rows = await this.query(
+      'SELECT 1 FROM sync_outbox WHERE row_uuid = ?1 LIMIT 1',
+      [rowUuid],
+    );
     return rows.length > 0;
   }
 
@@ -181,7 +201,12 @@ export class TauriStorageAdapter implements StorageAdapter {
     if (existing[0]) {
       await this.exec(
         'UPDATE sync_outbox SET collection = ?1, op = ?2, data = ?3 WHERE seq = ?4',
-        [entry.collection, entry.op, entry.data ? JSON.stringify(entry.data) : null, existing[0].seq],
+        [
+          entry.collection,
+          entry.op,
+          entry.data ? JSON.stringify(entry.data) : null,
+          existing[0].seq,
+        ],
       );
       return;
     }
@@ -202,24 +227,33 @@ export class TauriStorageAdapter implements StorageAdapter {
   }
 
   async getCursor(): Promise<number> {
-    const rows = await this.query('SELECT value FROM sync_meta WHERE key = ?1', ['cursor']);
+    const rows = await this.query(
+      'SELECT value FROM sync_meta WHERE key = ?1',
+      ['cursor'],
+    );
     return rows[0] ? Number(rows[0].value) : 0;
   }
 
   async setCursor(n: number): Promise<void> {
-    await this.exec('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?1, ?2)', [
-      'cursor',
-      String(n),
-    ]);
+    await this.exec(
+      'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?1, ?2)',
+      ['cursor', String(n)],
+    );
   }
 
   async getMeta(key: string): Promise<string | null> {
-    const rows = await this.query('SELECT value FROM sync_meta WHERE key = ?1', [key]);
+    const rows = await this.query(
+      'SELECT value FROM sync_meta WHERE key = ?1',
+      [key],
+    );
     return rows[0] ? (rows[0].value as string) : null;
   }
 
   async setMeta(key: string, value: string): Promise<void> {
-    await this.exec('INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?1, ?2)', [key, value]);
+    await this.exec(
+      'INSERT OR REPLACE INTO sync_meta (key, value) VALUES (?1, ?2)',
+      [key, value],
+    );
   }
 }
 
