@@ -44,6 +44,9 @@ func main() {
 	rootCmd.AddCommand(cmd.GetTemplateCmd())
 	rootCmd.AddCommand(cmd.GetAuthCmd())
 	rootCmd.AddCommand(cmd.GetArticleCmd())
+	rootCmd.AddCommand(cmd.GetTagCmd())
+	rootCmd.AddCommand(cmd.GetSchemaCmd())
+	rootCmd.AddCommand(cmd.GetParseURLCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

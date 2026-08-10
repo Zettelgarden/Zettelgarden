@@ -110,6 +110,27 @@ var cardSummariesCmd = &cobra.Command{
 	RunE:  runCardSummaries,
 }
 
+var cardStarCmd = &cobra.Command{
+	Use:   "star <id>",
+	Short: "Star a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardStar,
+}
+
+var cardUnstarCmd = &cobra.Command{
+	Use:   "unstar <id>",
+	Short: "Unstar a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardUnstar,
+}
+
+var cardChildrenCmd = &cobra.Command{
+	Use:   "children <id>",
+	Short: "List child cards of a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardChildren,
+}
+
 // Structured data commands
 var cardGetStructuredDataCmd = &cobra.Command{
 	Use:   "get-structured-data <id>",
@@ -200,6 +221,9 @@ func init() {
 	cardCmd.AddCommand(cardNextIDCmd)
 	cardCmd.AddCommand(cardNextChildIDCmd)
 	cardCmd.AddCommand(cardSummariesCmd)
+	cardCmd.AddCommand(cardStarCmd)
+	cardCmd.AddCommand(cardUnstarCmd)
+	cardCmd.AddCommand(cardChildrenCmd)
 	cardSummariesCmd.Flags().BoolVarP(&summariesLatest, "latest", "l", false, "Show only the most recent completed summary")
 
 	// Structured data commands
@@ -641,6 +665,108 @@ func runCardSummaries(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, summaries)
+}
+
+func runCardStar(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Post(fmt.Sprintf("/api/cards/%d/star", cardID), nil)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 201 && resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	return output.WriteMessage(os.Stdout, fmt.Sprintf("Card %d starred", cardID))
+}
+
+func runCardUnstar(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Delete(fmt.Sprintf("/api/cards/%d/star", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 204 && resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	return output.WriteMessage(os.Stdout, fmt.Sprintf("Card %d unstarred", cardID))
+}
+
+// PartialCard mirrors the backend model returned by /api/cards/{id}/children.
+type PartialCard struct {
+	ID        int    `json:"id"`
+	CardID    string `json:"card_id"`
+	UserID    int    `json:"user_id"`
+	Title     string `json:"title"`
+	ParentID  *int   `json:"parent_id"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Parent    *any   `json:"parent,omitempty"`
+	Tags      []Tag  `json:"tags,omitempty"`
+}
+
+func runCardChildren(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(fmt.Sprintf("/api/cards/%d/children", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var children []PartialCard
+	if err := json.Unmarshal(body, &children); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, children)
 }
 
 // SearchResult represents a search result from the API

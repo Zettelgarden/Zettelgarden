@@ -85,6 +85,9 @@ zg card search "query"        # Search cards (preview truncated by default)
 zg card next-id               # Get the next root card ID for a new top-level card
 zg card next-child-id <id>    # Get the next child card ID under a parent card
 zg card summaries <id>        # List AI summaries for a card (--latest for the most recent)
+zg card star <id>             # Star a card
+zg card unstar <id>           # Unstar a card
+zg card children <id>         # List child cards of a card
 ```
 
 **Context-friendly defaults:** By default, `list` and `search` truncate body/preview content to 300 characters to avoid polluting LLM context. Use `--full` to get complete content:
@@ -145,7 +148,31 @@ markdown, and stored as a new card tagged `#to-read #reference` by default:
 zg article create "https://example.com/post"   # Create an article card from a URL
 zg article create "https://example.com/post" -c 4.2   # With an explicit card ID
 zg article create "https://example.com/post" -t "#read-later"  # Custom tags
+zg parse-url "https://example.com/post"       # Fetch a URL as markdown (feeds article create)
 ```
+
+### Tags
+
+```bash
+zg tag list                  # List all tags
+zg tag create <name>         # Create a tag (--color, default black)
+zg tag delete <id>           # Delete a tag by ID
+zg tag cards <card-id>       # List tags on a card
+zg tag add <card-id> <tag>   # Tag a card (appends #tag to its body)
+```
+
+Tags are derived from `#hashtags` in card bodies, so `zg tag add` fetches the
+card, appends the hashtag if missing, and saves it back.
+
+### Schemas
+
+```bash
+zg schema list               # List structured-data schemas (with card counts)
+zg schema get <id>           # Get a schema by ID
+```
+
+Use `zg schema list` to find a schema id for
+`zg card set-structured-data <id> -s <schema-id>`.
 
 ### Global Flags
 
