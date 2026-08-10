@@ -8,6 +8,7 @@
 
 import { Platform } from 'react-native';
 import { loadSettings, saveSettings } from './settingsStore';
+import { keychainDelete, keychainGet, keychainSet } from './keychain';
 import {
   sqlBegin,
   sqlCommit,
@@ -56,6 +57,36 @@ export async function handleBridgeMessage(
         return { id: req.id, ok: true, result: await loadSettings() };
       case 'save_settings': {
         await saveSettings((req.args ?? {}) as Record<string, unknown>);
+        return { id: req.id, ok: true, result: null };
+      }
+      // Keychain auth (c6l.3): the webview's localStorage shim redirects the
+      // token/username keys here; the JWT lives in the OS keychain, never in
+      // WebView storage.
+      case 'keychain_get': {
+        const { key } = (req.args ?? {}) as { key?: string };
+        return {
+          id: req.id,
+          ok: true,
+          result: key ? await keychainGet(key) : null,
+        };
+      }
+      case 'keychain_set': {
+        const { key, value } = (req.args ?? {}) as {
+          key?: string;
+          value?: string;
+        };
+        if (!key || typeof value !== 'string') {
+          return {
+            id: req.id,
+            ok: false,
+            error: 'keychain_set requires key + value',
+          };
+        }
+        await keychainSet(key, value);
+        return { id: req.id, ok: true, result: null };
+      }
+      case 'keychain_delete': {
+        await keychainDelete();
         return { id: req.id, ok: true, result: null };
       }
       // SQLite bridge (c6l.2): the webview sync engine's MobileStorageAdapter

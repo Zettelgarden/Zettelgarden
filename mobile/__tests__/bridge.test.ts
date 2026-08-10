@@ -78,6 +78,65 @@ test('responseScript calls the shim onResponse with the payload', () => {
   expect(script.trim().endsWith('true;')).toBe(true);
 });
 
+describe('keychain bridge commands (c6l.3)', () => {
+  const keychainStore = (
+    jest.requireMock('react-native-keychain') as unknown as {
+      __store: Map<string, unknown>;
+    }
+  ).__store;
+
+  beforeEach(() => {
+    keychainStore.clear();
+  });
+
+  test('keychain_get returns the stored value or null', async () => {
+    const empty = await handleBridgeMessage(
+      JSON.stringify({ id: 20, cmd: 'keychain_get', args: { key: 'token' } }),
+    );
+    expect(empty).toEqual({ id: 20, ok: true, result: null });
+
+    const set = await handleBridgeMessage(
+      JSON.stringify({
+        id: 21,
+        cmd: 'keychain_set',
+        args: { key: 'token', value: 'jwt-xyz' },
+      }),
+    );
+    expect(set.ok).toBe(true);
+
+    const get = await handleBridgeMessage(
+      JSON.stringify({ id: 22, cmd: 'keychain_get', args: { key: 'token' } }),
+    );
+    expect(get).toEqual({ id: 22, ok: true, result: 'jwt-xyz' });
+  });
+
+  test('keychain_set rejects missing value', async () => {
+    const resp = await handleBridgeMessage(
+      JSON.stringify({ id: 23, cmd: 'keychain_set', args: { key: 'token' } }),
+    );
+    expect(resp.ok).toBe(false);
+    expect(resp.error).toContain('keychain_set');
+  });
+
+  test('keychain_delete clears the stored pair', async () => {
+    await handleBridgeMessage(
+      JSON.stringify({
+        id: 24,
+        cmd: 'keychain_set',
+        args: { key: 'token', value: 'jwt' },
+      }),
+    );
+    const del = await handleBridgeMessage(
+      JSON.stringify({ id: 25, cmd: 'keychain_delete' }),
+    );
+    expect(del.ok).toBe(true);
+    const get = await handleBridgeMessage(
+      JSON.stringify({ id: 26, cmd: 'keychain_get', args: { key: 'token' } }),
+    );
+    expect(get.result).toBeNull();
+  });
+});
+
 describe('sqlite bridge commands (c6l.2)', () => {
   /** The op-sqlite DB instance the executor opened (mock). */
   const db = () => __instances[__instances.length - 1];
