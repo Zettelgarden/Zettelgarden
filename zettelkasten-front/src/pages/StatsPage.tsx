@@ -11,6 +11,8 @@ import { PartialCard } from '../models/Card';
 import { ActivityHeatMap } from '../components/stats/ActivityHeatMap';
 import { DayTaskList } from '../components/stats/DayTaskList';
 import { DayCardList } from '../components/stats/DayCardList';
+import { CardItem } from '../components/cards/CardItem';
+import { getOrphanCards } from '../api/cards';
 import { MobileTopBar } from '../components/layout/MobileTopBar';
 import { useUIState } from '../contexts/UIStateContext';
 
@@ -22,12 +24,26 @@ export function StatsPage() {
   const [dayCards, setDayCards] = useState<PartialCard[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingDay, setIsLoadingDay] = useState<boolean>(false);
+  const [orphans, setOrphans] = useState<PartialCard[]>([]);
+  const [orphansError, setOrphansError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setDocumentTitle('Activity Stats');
     loadStats();
+    loadOrphans();
   }, []);
+
+  const loadOrphans = async () => {
+    setOrphansError(null);
+    try {
+      const cards = await getOrphanCards();
+      setOrphans(cards);
+    } catch (err) {
+      console.error('Error fetching orphan cards:', err);
+      setOrphansError('Failed to load orphan cards');
+    }
+  };
 
   const loadStats = async () => {
     setIsLoading(true);
@@ -185,6 +201,43 @@ export function StatsPage() {
             )}
           </div>
         )}
+
+        {/* Orphan Cards */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-semibold text-gray-800">
+              Orphan Cards
+            </h2>
+            <button
+              onClick={loadOrphans}
+              className="text-sm text-blue-500 hover:text-blue-700"
+            >
+              Refresh
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mb-4">
+            Cards with no references, no children, and no shared entities or
+            tags. These are prime candidates for building connections — open one
+            to see related cards and unlinked mentions.
+          </p>
+          {orphansError ? (
+            <div className="text-red-600 text-sm">{orphansError}</div>
+          ) : orphans.length === 0 ? (
+            <div className="text-gray-500 text-sm">
+              No orphan cards — your vault is well connected!
+            </div>
+          ) : (
+            <div className="max-h-80 overflow-y-auto">
+              <ul className="space-y-1">
+                {orphans.map((card) => (
+                  <li key={card.id}>
+                    <CardItem card={card} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

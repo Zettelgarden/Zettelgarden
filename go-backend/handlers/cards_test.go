@@ -3098,6 +3098,112 @@ func TestGetUnlinkedMentions_NonExistentCard(t *testing.T) {
 	}
 }
 
+// TestGetOrphanCards verifies the orphan report: cards with no references,
+// no children, and no shared entities/tags — excluding linked cards, parents,
+// overlap cards, and other users' cards.
+func TestGetOrphanCards(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	createCard := func(userID int, cardID string, parentID *int) int {
+		var id int
+		var parent any
+		if parentID != nil {
+			parent = *parentID
+		} else {
+			parent = nil
+		}
+		if err := s.GetDB().QueryRow(`
+			INSERT INTO cards (user_id, card_id, title, body, link, parent_id, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, '', $5, datetime('now'), datetime('now'))
+			RETURNING id
+		`, userID, cardID, "Card "+cardID, "Body", parent).Scan(&id); err != nil {
+			t.Fatalf("failed to create card %s: %v", cardID, err)
+		}
+		return id
+	}
+
+	// Fully isolated card (user 1) -> orphan.
+	createCard(1, "ISOLATED1", nil)
+
+	// CONN1 links to ISOLATED2 -> neither is an orphan.
+	conn1 := createCard(1, "CONN1", nil)
+	isolated2 := createCard(1, "ISOLATED2", nil)
+	if _, err := s.GetDB().Exec(`
+		INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
+		VALUES ($1, $2, datetime('now'), datetime('now'))
+	`, conn1, isolated2); err != nil {
+		t.Fatalf("failed to insert backlink: %v", err)
+	}
+
+	// PARENT1 has a child CHILD1 -> PARENT1 not orphan; CHILD1 is a leaf -> orphan.
+	parent1 := createCard(1, "PARENT1", nil)
+	createCard(1, "CHILD1", &parent1)
+
+	// ENT1/ENT2 share entity 1 -> neither is an orphan.
+	ent1 := createCard(1, "ENT1", nil)
+	ent2 := createCard(1, "ENT2", nil)
+	for _, cardPK := range []int{ent1, ent2} {
+		if _, err := s.GetDB().Exec(`
+			INSERT INTO entity_card_junction (user_id, entity_id, card_pk)
+			VALUES ($1, $2, $3)
+		`, 1, 1, cardPK); err != nil {
+			t.Fatalf("failed to link entity to card %d: %v", cardPK, err)
+		}
+	}
+
+	// TAG1/TAG2 share tag 1 -> neither is an orphan.
+	tag1 := createCard(1, "TAG1", nil)
+	tag2 := createCard(1, "TAG2", nil)
+	for _, cardPK := range []int{tag1, tag2} {
+		if _, err := s.GetDB().Exec(`
+			INSERT INTO card_tags (card_pk, tag_id) VALUES ($1, $2)
+		`, cardPK, 1); err != nil {
+			t.Fatalf("failed to link tag to card %d: %v", cardPK, err)
+		}
+	}
+
+	// Isolated card owned by user 2 -> must not appear for user 1.
+	createCard(2, "USER2ISO", nil)
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/orphans", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/orphans", s.JwtMiddleware(s.GetOrphanCardsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var orphans []models.PartialCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &orphans)
+
+	byID := make(map[string]bool)
+	for _, o := range orphans {
+		byID[o.CardID] = true
+	}
+
+	if !byID["ISOLATED1"] {
+		t.Error("expected ISOLATED1 to be an orphan (no connections)")
+	}
+	if !byID["CHILD1"] {
+		t.Error("expected leaf child CHILD1 to be an orphan")
+	}
+
+	for _, notOrphan := range []string{"CONN1", "ISOLATED2", "PARENT1", "ENT1", "ENT2", "TAG1", "TAG2", "USER2ISO"} {
+		if byID[notOrphan] {
+			t.Errorf("expected %s NOT to be an orphan", notOrphan)
+		}
+	}
+}
+
 // TestEnvFloatAndEnvInt verifies the env helpers fall back to defaults for
 // unset and unparsable values.
 func TestEnvFloatAndEnvInt(t *testing.T) {

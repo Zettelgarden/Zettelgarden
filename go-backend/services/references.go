@@ -135,6 +135,148 @@ func GetUnlinkedMentions(db models.Database, userID int, sourceCard models.Card)
 	return mentions, nil
 }
 
+// GetOrphanCards returns the user's cards with no connections: no incoming or
+// outgoing references (self-links ignored), no children, and no entities or
+// tags shared with any other card. Uses cheap junction queries only — it never
+// runs the semantic related-score path (which would hit Typesense per card).
+func GetOrphanCards(db models.Database, userID int) ([]models.PartialCard, error) {
+	// All non-deleted cards for the user.
+	rows, err := db.Query(`
+		SELECT id, card_id, user_id, title, created_at, updated_at
+		FROM cards
+		WHERE user_id = $1 AND is_deleted = FALSE
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cards for orphans: %w", err)
+	}
+	defer rows.Close()
+
+	cardsByID := make(map[int]models.PartialCard)
+	for rows.Next() {
+		card := models.PartialCard{}
+		if err := rows.Scan(&card.ID, &card.CardID, &card.UserID, &card.Title, &card.CreatedAt, &card.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan card for orphans: %w", err)
+		}
+		cardsByID[card.ID] = card
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating cards for orphans: %w", err)
+	}
+
+	connected := make(map[int]bool, len(cardsByID))
+
+	// 1. Cards with at least one reference in or out (self-links ignored).
+	//    backlinks has no user_id, so join through cards on either endpoint.
+	refRows, err := db.Query(`
+		SELECT DISTINCT b.source_id_int, b.target_id_int
+		FROM backlinks b
+		JOIN cards c ON c.id IN (b.source_id_int, b.target_id_int)
+		WHERE c.user_id = $1 AND c.is_deleted = FALSE
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query backlinks for orphans: %w", err)
+	}
+	defer refRows.Close()
+	for refRows.Next() {
+		var src, tgt int
+		if err := refRows.Scan(&src, &tgt); err != nil {
+			return nil, fmt.Errorf("failed to scan backlink for orphans: %w", err)
+		}
+		if src == tgt {
+			continue
+		}
+		connected[src] = true
+		connected[tgt] = true
+	}
+	if err = refRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating backlinks for orphans: %w", err)
+	}
+
+	// 2. Cards that have children (parent_id pointing at another card; the
+	//    root convention parent_id == id does not count).
+	parentRows, err := db.Query(`
+		SELECT DISTINCT parent_id
+		FROM cards
+		WHERE user_id = $1 AND is_deleted = FALSE AND parent_id IS NOT NULL AND parent_id != id
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query parents for orphans: %w", err)
+	}
+	defer parentRows.Close()
+	for parentRows.Next() {
+		var parentID int
+		if err := parentRows.Scan(&parentID); err != nil {
+			return nil, fmt.Errorf("failed to scan parent for orphans: %w", err)
+		}
+		connected[parentID] = true
+	}
+	if err = parentRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating parents for orphans: %w", err)
+	}
+
+	// 3. Cards that share at least one entity with another card.
+	entRows, err := db.Query(`
+		SELECT DISTINCT ecj1.card_pk, ecj2.card_pk
+		FROM entity_card_junction ecj1
+		JOIN entity_card_junction ecj2
+		  ON ecj1.entity_id = ecj2.entity_id AND ecj1.card_pk < ecj2.card_pk
+		WHERE ecj1.user_id = $1 AND ecj2.user_id = $1
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query shared entities for orphans: %w", err)
+	}
+	defer entRows.Close()
+	for entRows.Next() {
+		var a, b int
+		if err := entRows.Scan(&a, &b); err != nil {
+			return nil, fmt.Errorf("failed to scan shared entity pair for orphans: %w", err)
+		}
+		connected[a] = true
+		connected[b] = true
+	}
+	if err = entRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating shared entity pairs for orphans: %w", err)
+	}
+
+	// 4. Cards that share at least one tag with another card.
+	tagRows, err := db.Query(`
+		SELECT DISTINCT ct1.card_pk, ct2.card_pk
+		FROM card_tags ct1
+		JOIN card_tags ct2 ON ct1.tag_id = ct2.tag_id AND ct1.card_pk < ct2.card_pk
+		JOIN cards c1 ON ct1.card_pk = c1.id
+		JOIN cards c2 ON ct2.card_pk = c2.id
+		WHERE c1.user_id = $1 AND c2.user_id = $1
+		  AND c1.is_deleted = FALSE AND c2.is_deleted = FALSE
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query shared tags for orphans: %w", err)
+	}
+	defer tagRows.Close()
+	for tagRows.Next() {
+		var a, b int
+		if err := tagRows.Scan(&a, &b); err != nil {
+			return nil, fmt.Errorf("failed to scan shared tag pair for orphans: %w", err)
+		}
+		connected[a] = true
+		connected[b] = true
+	}
+	if err = tagRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating shared tag pairs for orphans: %w", err)
+	}
+
+	orphans := make([]models.PartialCard, 0, len(cardsByID))
+	for id, card := range cardsByID {
+		if !connected[id] {
+			orphans = append(orphans, card)
+		}
+	}
+	sort.Slice(orphans, func(i, j int) bool {
+		return orphans[i].ID < orphans[j].ID
+	})
+
+	return orphans, nil
+}
+
 // GetDirectLinks extracts and resolves direct links (cards referenced in body) from a card
 func GetDirectLinks(db models.Database, userID int, card models.Card) ([]models.PartialCard, error) {
 	backlinkIDs := ExtractBacklinks(card.Body)

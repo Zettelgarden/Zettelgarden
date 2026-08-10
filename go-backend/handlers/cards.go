@@ -274,6 +274,22 @@ func (s *Handler) GetUnlinkedMentionsRoute(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(mentions)
 }
 
+// GetOrphanCardsRoute returns the current user's cards with no connections
+// (no references, no children, no shared entities/tags).
+func (s *Handler) GetOrphanCardsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	orphans, err := services.GetOrphanCards(s.GetDB(), userID)
+	if err != nil {
+		log.Printf("Failed to get orphan cards: %v", err)
+		http.Error(w, "Failed to get orphan cards", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(orphans)
+}
+
 // GetCardRoute returns a specific card by ID with related details
 func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

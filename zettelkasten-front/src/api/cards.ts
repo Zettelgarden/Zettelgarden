@@ -536,3 +536,13 @@ export async function getUnlinkedMentions(
   );
   return mentions;
 }
+
+/**
+ * Get the current user's cards with no connections (no references, no
+ * children, no shared entities/tags).
+ */
+export async function getOrphanCards(): Promise<PartialCard[]> {
+  const { data: orphans } =
+    await apiClient.get<PartialCard[]>('/cards/orphans');
+  return orphans;
+}
