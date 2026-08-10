@@ -269,14 +269,54 @@ func runCardList(cmd *cobra.Command, args []string) error {
 }
 
 // runAllCardSearch lists all cards via POST /api/search with an empty query.
-// The search API paginates by page/per_page, so convert limit/offset to page.
+// The search API paginates by page/per_page only, so to honor exact
+// limit/offset semantics: clamp the page size, and for non-multiple offsets
+// also fetch the following page then drop the leading remainder.
 func runAllCardSearch(client *api.Client) error {
-	perPage := listLimit
-	if perPage <= 0 {
-		perPage = 20
+	limit := listLimit
+	if limit <= 0 {
+		limit = 20
 	}
-	page := listOffset/perPage + 1
+	if limit > 100 {
+		limit = 100 // backend caps per_page at 100
+	}
+	offset := listOffset
+	if offset < 0 {
+		offset = 0
+	}
 
+	page := offset/limit + 1
+	first, err := searchCardsPage(client, page, limit)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+	results := first.Results
+
+	if remainder := offset % limit; remainder > 0 {
+		second, err := searchCardsPage(client, page+1, limit)
+		if err != nil {
+			return output.WriteError(os.Stdout, "API request failed", err.Error())
+		}
+		results = append(results, second.Results...)
+		if remainder > len(results) {
+			remainder = len(results)
+		}
+		results = results[remainder:]
+	}
+
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
+	for i := range results {
+		truncateSearchPreview(&results[i], listFull)
+	}
+
+	return output.WriteList(os.Stdout, results, first.Total, limit, offset)
+}
+
+// searchCardsPage fetches a single page of all-cards search results.
+func searchCardsPage(client *api.Client, page, perPage int) (PaginatedSearchResponse, error) {
 	searchParams := SearchRequestParams{
 		SearchTerm: "",
 		FullText:   false,
@@ -286,37 +326,33 @@ func runAllCardSearch(client *api.Client) error {
 	}
 	reqBody, err := json.Marshal(searchParams)
 	if err != nil {
-		return output.WriteError(os.Stdout, "Failed to build request", err.Error())
+		return PaginatedSearchResponse{}, err
 	}
 
 	resp, err := client.Post("/api/search", reqBody)
 	if err != nil {
-		return output.WriteError(os.Stdout, "API request failed", err.Error())
+		return PaginatedSearchResponse{}, err
 	}
 
 	body, err := api.GetBodyBytes(resp)
 	if err != nil {
-		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+		return PaginatedSearchResponse{}, err
 	}
 
 	if resp.StatusCode != 200 {
-		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+		return PaginatedSearchResponse{}, fmt.Errorf("API error: %d: %s", resp.StatusCode, string(body))
 	}
 
 	var searchResp PaginatedSearchResponse
 	if err := json.Unmarshal(body, &searchResp); err != nil {
-		return output.WriteError(os.Stdout, "Parse error", err.Error())
+		return PaginatedSearchResponse{}, err
 	}
-
-	for i := range searchResp.Results {
-		truncateSearchPreview(&searchResp.Results[i], listFull)
-	}
-
-	return output.WriteList(os.Stdout, searchResp.Results, searchResp.Total, searchResp.PerPage, (searchResp.Page-1)*searchResp.PerPage)
+	return searchResp, nil
 }
 
 // runStarredCardList lists starred cards via GET /api/cards/starred, which
-// returns full card objects embedded in the starred-card response.
+// returns full card objects embedded in the starred-card response. The
+// endpoint is unpaginated, so --limit/--offset are applied client-side.
 func runStarredCardList(client *api.Client) error {
 	resp, err := client.Get("/api/cards/starred")
 	if err != nil {
@@ -344,6 +380,24 @@ func runStarredCardList(client *api.Client) error {
 		truncateCardBody(&starred[i].Card, listFull)
 		cards = append(cards, starred[i].Card)
 	}
+
+	offset := listOffset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(cards) {
+		offset = len(cards)
+	}
+	cards = cards[offset:]
+
+	limit := listLimit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > len(cards) {
+		limit = len(cards)
+	}
+	cards = cards[:limit]
 
 	return output.WriteSuccess(os.Stdout, cards)
 }
