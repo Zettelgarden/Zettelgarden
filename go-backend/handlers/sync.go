@@ -335,6 +335,7 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 				time.Sleep(time.Duration(25*(1<<attempt)) * time.Millisecond)
 				continue
 			}
+			log.Printf("sync push begin: %v", err)
 			http.Error(w, "unable to start transaction", http.StatusInternalServerError)
 			return
 		}

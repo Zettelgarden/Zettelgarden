@@ -124,8 +124,9 @@ func buildSQLiteDSN(path, txlock string) string {
 // upgrade surfaces as SQLITE_BUSY_SNAPSHOT (517) rather than the primary
 // SQLITE_BUSY (5) — a bare `== SQLITE_BUSY` comparison misses it (the bug that
 // made sync pushes fail with 517 instead of retrying). All busy variants
-// (BUSY=5, BUSY_RECOVERY=261, BUSY_SNAPSHOT=517, BUSY_TIMEOUT=773) share the
-// low byte, so mask to the primary code.
+// (BUSY=5, BUSY_RECOVERY=261, BUSY_SNAPSHOT=517, BUSY_TIMEOUT=773 — the code
+// busy_timeout expiry surfaces as) share the low byte, so mask to the primary
+// code; no other primary code has low byte 5, so the mask cannot over-match.
 func IsSQLiteBusy(err error) bool {
 	var sqliteErr *sqlite.Error
 	return errors.As(err, &sqliteErr) && sqliteErr.Code()&0xff == sqlite3.SQLITE_BUSY
