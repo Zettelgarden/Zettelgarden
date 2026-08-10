@@ -131,6 +131,19 @@ var cardChildrenCmd = &cobra.Command{
 	RunE:  runCardChildren,
 }
 
+var cardUnsortedCmd = &cobra.Command{
+	Use:   "unsorted",
+	Short: "List cards with no card id (unsorted)",
+	RunE:  runCardUnsorted,
+}
+
+var cardSuggestTitleCmd = &cobra.Command{
+	Use:   "suggest-title <body>",
+	Short: "Ask the AI to suggest a card title from a body",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardSuggestTitle,
+}
+
 // Structured data commands
 var cardGetStructuredDataCmd = &cobra.Command{
 	Use:   "get-structured-data <id>",
@@ -224,7 +237,11 @@ func init() {
 	cardCmd.AddCommand(cardStarCmd)
 	cardCmd.AddCommand(cardUnstarCmd)
 	cardCmd.AddCommand(cardChildrenCmd)
+	cardCmd.AddCommand(cardUnsortedCmd)
+	cardCmd.AddCommand(cardSuggestTitleCmd)
 	cardSummariesCmd.Flags().BoolVarP(&summariesLatest, "latest", "l", false, "Show only the most recent completed summary")
+	cardUnsortedCmd.Flags().IntVarP(&listLimit, "limit", "l", 20, "Limit results")
+	cardUnsortedCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset results")
 
 	// Structured data commands
 	cardCmd.AddCommand(cardGetStructuredDataCmd)
@@ -770,6 +787,87 @@ func runCardChildren(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, children)
+}
+
+func runCardUnsorted(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	limit := listLimit
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100 // backend caps per_page at 100
+	}
+	offset := listOffset
+	if offset < 0 {
+		offset = 0
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(fmt.Sprintf("/api/cards/unsorted?page=%d&per_page=%d", offset/limit+1, limit))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var result struct {
+		Cards      []Card `json:"cards"`
+		Page       int    `json:"page"`
+		PerPage    int    `json:"per_page"`
+		Total      int    `json:"total"`
+		TotalPages int    `json:"total_pages"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+	if result.Cards == nil {
+		result.Cards = []Card{}
+	}
+
+	return output.WriteSuccess(os.Stdout, result.Cards)
+}
+
+func runCardSuggestTitle(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	requestBody, _ := json.Marshal(map[string]string{"body": args[0]})
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Post("/api/cards/suggest-title", requestBody)
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var result struct {
+		SuggestedTitle string `json:"suggested_title"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+
+	return output.WriteSuccess(os.Stdout, result)
 }
 
 // SearchResult represents a search result from the API

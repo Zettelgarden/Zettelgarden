@@ -75,6 +75,15 @@ var authRevokeCmd = &cobra.Command{
 	RunE:  runAuthRevoke,
 }
 
+var authKeysCmd = &cobra.Command{
+	Use:   "keys",
+	Short: "List the API keys on the account",
+	Long: `List the API keys on the account (name, active state, last use, created
+at) via GET /api/api-keys. The raw key values are never returned — only
+metadata.`,
+	RunE: runAuthKeys,
+}
+
 // authStatus is the machine-readable output of `zg auth status`.
 type authStatus struct {
 	APIURL      string `json:"api_url"`
@@ -116,6 +125,7 @@ func init() {
 	authCmd.AddCommand(authSetCmd)
 	authCmd.AddCommand(authStatusCmd)
 	authCmd.AddCommand(authRevokeCmd)
+	authCmd.AddCommand(authKeysCmd)
 }
 
 // GetAuthCmd returns the auth command for registration in main.
@@ -376,6 +386,42 @@ func runAuthRevoke(cmd *cobra.Command, args []string) error {
 	default:
 		return output.WriteMessage(os.Stdout, "API key removed from local storage")
 	}
+}
+
+func runAuthKeys(cmd *cobra.Command, args []string) error {
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+	if cfg.Token == "" {
+		return output.WriteError(os.Stdout, "No token configured", "Run `zg auth login` or `zg auth set <token>` first")
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get("/api/api-keys")
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var result struct {
+		APIKeys []any `json:"api_keys"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+	if result.APIKeys == nil {
+		result.APIKeys = []any{}
+	}
+
+	return output.WriteSuccess(os.Stdout, result.APIKeys)
 }
 
 // loginErrorMessage extracts a human-readable message from a failed /api/login

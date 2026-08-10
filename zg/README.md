@@ -54,6 +54,7 @@ zg auth set zg_live_...    # store the key created in the web UI
 **Inspect / revoke:**
 ```bash
 zg auth status             # shows token source + warns if a JWT is configured
+zg auth keys               # lists the API keys on the account (metadata only)
 zg auth revoke             # revokes the stored API key and clears local storage
 ```
 
@@ -88,6 +89,8 @@ zg card summaries <id>        # List AI summaries for a card (--latest for the m
 zg card star <id>             # Star a card
 zg card unstar <id>           # Unstar a card
 zg card children <id>         # List child cards of a card
+zg card unsorted              # List cards with no card id (--limit/--offset)
+zg card suggest-title "body"  # Ask the AI to suggest a title from a body
 ```
 
 **Context-friendly defaults:** By default, `list` and `search` truncate body/preview content to 300 characters to avoid polluting LLM context. Use `--full` to get complete content:
@@ -173,6 +176,12 @@ zg schema get <id>           # Get a schema by ID
 
 Use `zg schema list` to find a schema id for
 `zg card set-structured-data <id> -s <schema-id>`.
+
+### Stats
+
+```bash
+zg stats                     # Daily card/task activity for the last 30 days (--days N)
+```
 
 ### Global Flags
 

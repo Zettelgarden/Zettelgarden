@@ -47,6 +47,7 @@ func main() {
 	rootCmd.AddCommand(cmd.GetTagCmd())
 	rootCmd.AddCommand(cmd.GetSchemaCmd())
 	rootCmd.AddCommand(cmd.GetParseURLCmd())
+	rootCmd.AddCommand(cmd.GetStatsCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
