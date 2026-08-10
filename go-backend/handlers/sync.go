@@ -10,10 +10,8 @@ import (
 	"strings"
 	"time"
 
-	sqlite "modernc.org/sqlite"
-	sqlite3 "modernc.org/sqlite/lib"
-
 	"go-backend/models"
+	"go-backend/server"
 	"go-backend/services"
 )
 
@@ -97,7 +95,7 @@ func (s *Handler) SnapshotRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	collections := parseCollectionsParam(r)
 
-	tx, err := s.BeginTx()
+	tx, err := s.BeginReadTx()
 	if err != nil {
 		http.Error(w, "unable to start read transaction", http.StatusInternalServerError)
 		return
@@ -159,7 +157,7 @@ func (s *Handler) ChangesRoute(w http.ResponseWriter, r *http.Request) {
 	// Retention boundary + feed are read in ONE read transaction so a prune
 	// committed between two statements can't let a stale client advance past
 	// the pruned range without ever seeing reset (TOCTOU, review P2-2).
-	tx, err := s.BeginTx()
+	tx, err := s.BeginReadTx()
 	if err != nil {
 		http.Error(w, "unable to start read transaction", http.StatusInternalServerError)
 		return
@@ -312,29 +310,40 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Apply the batch inside ONE transaction, retrying on SQLITE_BUSY: the
-	// transaction reads before it writes, and a concurrent writer (background
-	// job runner, another push) can hold the write lock long enough that the
-	// upgrade fails even with busy_timeout. A retry is safe — a busy failure
-	// rolled the whole batch back, so nothing partial was committed.
+	// Apply the batch inside ONE transaction, retrying on SQLITE_BUSY. Write
+	// transactions BEGIN IMMEDIATE (_txlock=immediate, server.OpenSQLite), so
+	// busy surfaces at BeginTx when a concurrent writer (background job
+	// runner, another push) holds the write lock; the apply itself reads
+	// before it writes. IsSQLiteBusy matches the extended busy codes too — 517
+	// SQLITE_BUSY_SNAPSHOT surfaces instead of 5 because modernc enables
+	// extended result codes, which was the production "database is locked"
+	// failure (the old == SQLITE_BUSY check missed it and the push never
+	// retried). A retry is safe — a busy failure rolled the whole batch back,
+	// so nothing partial was committed.
 	const pushBusyRetries = 6
-	var results []models.SyncPushResult
-	var cursor int64
-	var lost int
-	tx, err := s.BeginTx()
-	if err != nil {
-		http.Error(w, "unable to start transaction", http.StatusInternalServerError)
-		return
-	}
+	var (
+		results []models.SyncPushResult
+		cursor  int64
+		lost    int
+		tx      *sql.Tx
+	)
 	for attempt := 0; ; attempt++ {
+		var err error
+		if tx, err = s.BeginTx(); err != nil {
+			if server.IsSQLiteBusy(err) && attempt < pushBusyRetries {
+				log.Printf("sync push begin busy (attempt %d/%d): %v", attempt+1, pushBusyRetries, err)
+				time.Sleep(time.Duration(25*(1<<attempt)) * time.Millisecond)
+				continue
+			}
+			http.Error(w, "unable to start transaction", http.StatusInternalServerError)
+			return
+		}
 		results, cursor, lost, err = services.ApplySyncPush(tx, userID, &req)
 		if err == nil {
 			break
 		}
 		tx.Rollback()
-		var sqliteErr *sqlite.Error
-		isBusy := errors.As(err, &sqliteErr) && sqliteErr.Code() == int(sqlite3.SQLITE_BUSY)
-		if !isBusy || attempt >= pushBusyRetries {
+		if !server.IsSQLiteBusy(err) || attempt >= pushBusyRetries {
 			log.Printf("sync push apply: %v", err)
 			// Schema/validation rejections (bead s2l) are client errors:
 			// surface the message so the client knows why the batch was
@@ -349,10 +358,6 @@ func (s *Handler) PushRoute(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("sync push busy (attempt %d/%d): %v", attempt+1, pushBusyRetries, err)
 		time.Sleep(time.Duration(25*(1<<attempt)) * time.Millisecond)
-		if tx, err = s.BeginTx(); err != nil {
-			http.Error(w, "unable to start transaction", http.StatusInternalServerError)
-			return
-		}
 	}
 	// Retention heartbeat + opportunistic prune, inside the same tx so the
 	// reported cursor is never ahead of the applied batch.

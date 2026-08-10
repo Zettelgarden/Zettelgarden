@@ -200,11 +200,18 @@ func Setup() *server.Server {
 		// which deadlocks the busy-handler under rollback-journal. A
 		// file-backed DB lets WAL engage, so the pool and the test tx coexist
 		// (same isolation semantics: a read sees prior committed writes).
+		//
+		// OpenSQLiteDeferred (not OpenSQLite): production opens with
+		// _txlock=immediate so write transactions take the lock up front, but
+		// the shared per-test tx must NOT pin the write lock for the whole
+		// test -- pool-direct writes (login last_login, api_keys last_used_at,
+		// …) must proceed while it is open. Deferred BEGIN preserves the
+		// original semantics exactly.
 		tmpDir, err := os.MkdirTemp("", "zettelgarden_test_*")
 		if err != nil {
 			log.Fatalf("test sqlite temp dir: %v", err)
 		}
-		db, err = server.OpenSQLite(filepath.Join(tmpDir, "test.db"))
+		db, err = server.OpenSQLiteDeferred(filepath.Join(tmpDir, "test.db"))
 		if err != nil {
 			log.Fatalf("Unable to connect to the database: %v\n", err)
 		}

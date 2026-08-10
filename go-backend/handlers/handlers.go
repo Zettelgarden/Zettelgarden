@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"go-backend/models"
@@ -111,11 +112,26 @@ func (h *Handler) ShouldCommitTx() bool {
 
 // BeginTx returns a transaction for the handler to use.
 // During testing, this returns the test's transaction (commit should be skipped).
+// Production write transactions BEGIN IMMEDIATE (_txlock=immediate in the DSN,
+// see server.OpenSQLite) so read-then-write handlers can never hit
+// SQLITE_BUSY_SNAPSHOT (517); see server.IsSQLiteBusy.
 func (h *Handler) BeginTx() (*sql.Tx, error) {
 	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
 		return h.Server.Tx, nil
 	}
 	return h.DB.Begin()
+}
+
+// BeginReadTx returns a transaction for read-only handlers (snapshot/changes
+// feeds, reports). It opts into deferred BEGIN (&sql.TxOptions{ReadOnly: true}):
+// the transaction takes no write lock and reads a consistent WAL snapshot, so
+// it never blocks — or is blocked by — concurrent writers. Write handlers must
+// use BeginTx instead.
+func (h *Handler) BeginReadTx() (*sql.Tx, error) {
+	if h.Server != nil && h.Server.Testing && h.Server.Tx != nil {
+		return h.Server.Tx, nil
+	}
+	return h.DB.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
 }
 
 // commitTx commits the handler's transaction in production. In testing it is a
