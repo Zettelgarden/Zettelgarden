@@ -5,7 +5,7 @@ export interface ButtonProps {
   disabled?: boolean;
   type?: 'button' | 'submit' | 'reset';
   'aria-pressed'?: boolean;
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
   size?: 'small' | 'medium' | 'large';
   children: React.ReactNode;
   className?: string;
@@ -32,6 +32,11 @@ export const Button: React.FC<ButtonProps> = ({
       'bg-gray-200 text-gray-800 hover:bg-gray-300 focus:ring-gray-500',
     outline:
       'bg-transparent border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500',
+    // Transparent background, no text color of its own: consumers own the
+    // text/hover colors so icon & secondary-header buttons keep their exact
+    // look. Note: don't add text-* here — it would win over consumer
+    // text-gray-400/500 overrides (gray-700 sorts after 400/500 in Tailwind).
+    ghost: 'bg-transparent hover:bg-gray-100 focus:ring-gray-500',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
   };
   const sizeClasses = {

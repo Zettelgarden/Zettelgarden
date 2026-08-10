@@ -100,6 +100,7 @@ export function ViewPageHeader({
             onClick={onToggleStar}
             title={viewingCard.is_starred ? 'Unstar card' : 'Star card'}
             size="small"
+            variant="ghost"
             className={`${
               viewingCard.is_starred
                 ? 'text-yellow-500 hover:bg-yellow-50'
@@ -114,6 +115,7 @@ export function ViewPageHeader({
             title="Toggle info pane"
             aria-pressed={rightPaneOpen}
             size="small"
+            variant="ghost"
             className={`hidden md:inline-flex ${
               rightPaneOpen
                 ? 'text-gray-700 hover:bg-gray-100'
@@ -219,6 +221,7 @@ export function ViewPageHeader({
                 onClick={onNavigatePrev}
                 title="Previous sibling"
                 size="small"
+                variant="ghost"
                 className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               >
                 ‹ Prev
@@ -230,6 +233,7 @@ export function ViewPageHeader({
                 onClick={onNavigateParent}
                 title="Go to parent"
                 size="small"
+                variant="ghost"
                 className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               >
                 ↑ Up
@@ -241,6 +245,7 @@ export function ViewPageHeader({
                 onClick={onNavigateNext}
                 title="Next sibling"
                 size="small"
+                variant="ghost"
                 className="text-gray-500 hover:text-gray-900 hover:bg-gray-100"
               >
                 Next ›
@@ -275,6 +280,7 @@ export function ViewPageHeader({
             }}
             title="Create a child card"
             size="small"
+            variant="ghost"
             className="!px-2.5 !py-1 !min-h-0 md:!min-h-0 text-gray-500 hover:text-palette-dark rounded-md"
           >
             ＋ Child

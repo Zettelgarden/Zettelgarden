@@ -53,6 +53,15 @@ describe('Button', () => {
     expect(button).toHaveClass('border');
   });
 
+  it('renders with ghost variant (transparent, no bg fill)', () => {
+    render(<Button variant="ghost">Ghost</Button>);
+    const button = screen.getByText('Ghost');
+    expect(button).toHaveClass('bg-transparent');
+    expect(button).not.toHaveClass('bg-palette-dark');
+    expect(button).not.toHaveClass('bg-gray-200');
+    expect(button).not.toHaveClass('border');
+  });
+
   it('renders with danger variant (red treatment)', () => {
     render(<Button variant="danger">Delete</Button>);
     const button = screen.getByText('Delete');

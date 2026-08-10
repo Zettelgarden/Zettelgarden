@@ -70,6 +70,7 @@ export function EditPageHeader({
               disabled={suggestingTitle || !editingCard.body.trim()}
               type="button"
               size="small"
+              variant="ghost"
               className="absolute right-2 top-1/2 -translate-y-1/2 !p-1 text-palette-dark hover:text-palette-darkest hover:bg-palette-lightest disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
               title={
                 suggestingTitle
@@ -112,6 +113,7 @@ export function EditPageHeader({
             title="Toggle info pane"
             aria-pressed={rightPaneOpen}
             size="small"
+            variant="ghost"
             className="hidden md:inline-flex text-gray-400 hover:text-gray-700 hover:bg-gray-100"
           >
             <svg
