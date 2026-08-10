@@ -13,7 +13,7 @@
 import type { Card, NextIdResponse, PartialCard } from '../models/Card';
 import type { Task } from '../models/Task';
 import type { Tag } from '../models/Tags';
-import { isDesktopApp } from './tauriStorageAdapter';
+import { isDesktopApp, isNativeShell } from './tauriStorageAdapter';
 import { httpDataProvider } from './httpProvider';
 import type { SyncDataProvider } from './syncProvider';
 
@@ -90,4 +90,4 @@ export function getDataProvider(): DataProvider {
   return httpDataProvider;
 }
 
-export { isDesktopApp };
+export { isDesktopApp, isNativeShell };

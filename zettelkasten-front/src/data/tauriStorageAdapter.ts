@@ -38,6 +38,30 @@ export function isDesktopApp(): boolean {
   );
 }
 
+/** True inside the React Native WebView shell (c6l.4 — mobile/webviewShim.js). */
+export function isMobileApp(): boolean {
+  return typeof window !== 'undefined' && !!(window as any).zgMobile;
+}
+
+/** True in any native shell (Tauri desktop or RN mobile webview). */
+export function isNativeShell(): boolean {
+  return isDesktopApp() || isMobileApp();
+}
+
+/**
+ * Waits for the shell's async bridge to prime (keychain/settings cache) so
+ * the token read below can't miss a valid session on a slow bridge. No-op in
+ * the web app (both zg* globals absent).
+ */
+export async function waitForShellReady(): Promise<void> {
+  const shell = isDesktopApp()
+    ? (window as any).zgDesktop
+    : isMobileApp()
+    ? (window as any).zgMobile
+    : undefined;
+  await shell?.ready?.catch(() => undefined);
+}
+
 export class TauriStorageAdapter implements StorageAdapter {
   private ready: Promise<void>;
   /** Serializes whole transactions (each invoke releases the Rust mutex

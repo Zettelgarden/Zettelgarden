@@ -10,13 +10,13 @@
  */
 
 import { isNetworkError } from '../api/errors';
-import { isDesktopApp } from './tauriStorageAdapter';
+import { isNativeShell } from './tauriStorageAdapter';
 
 export async function graceful<T>(
   fallback: T,
   fn: () => Promise<T>,
 ): Promise<T> {
-  if (!isDesktopApp()) return fn();
+  if (!isNativeShell()) return fn();
   try {
     return await fn();
   } catch (err) {

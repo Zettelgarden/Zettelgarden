@@ -1,8 +1,9 @@
 /**
- * Sync client: the desktop app's single SyncEngine instance and its
- * online/offline + progress wiring (epic Zettelgarden-v5b, Phase 2b — fv3).
+ * Sync client: the native shell's single SyncEngine instance and its
+ * online/offline + progress wiring (epic Zettelgarden-v5b, Phase 2b — fv3;
+ * Phase 3a — c6l.4).
  *
- * Initialized once when the app boots in desktop mode (SyncProvider). Reads
+ * Initialized once when the app boots in a native shell (SyncProvider). Reads
  * and writes for cards/tasks/tags go through the engine's local mirror +
  * outbox; the server is reached only by the engine's HttpTransport.
  */
@@ -14,6 +15,8 @@ import {
   TauriStorageAdapter,
   tauriInvoke,
   isDesktopApp,
+  isMobileApp,
+  isNativeShell,
 } from './tauriStorageAdapter';
 
 export interface SyncClient {
@@ -27,36 +30,76 @@ export interface SyncClient {
   subscribe(cb: () => void): () => void;
 }
 
+/**
+ * Reads the shell's non-secret settings (server URL) — Tauri invoke on
+ * desktop, zgMobile bridge on the RN webview (c6l.4). Returns undefined when
+ * no shell is present or the shell has no settings.
+ */
+async function loadShellSettings(): Promise<
+  { serverUrl?: string } | undefined
+> {
+  if (isDesktopApp()) {
+    try {
+      return await tauriInvoke<{ serverUrl?: string }>('load_settings');
+    } catch {
+      // Settings unavailable (e.g. missing zgDesktop) — fall through.
+    }
+  }
+  if (isMobileApp()) {
+    try {
+      return await (window as any).zgMobile?.loadSettings();
+    } catch {
+      // Mobile bridge not ready — fall through.
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Normalizes a configured server URL to the server ROOT: strips a trailing
+ * /api (web REST convention) and any trailing slash so the engine's
+ * /api/sync/* paths resolve exactly once.
+ */
+export function normalizeServerUrl(base: string): string {
+  return base.replace(/\/?api\/?$/, '').replace(/\/$/, '');
+}
+
 /** Resolves the API base URL for the SYNC transport (server ROOT — the engine
  * appends /api/sync/... itself; VITE_URL / settings may include the /api
  * suffix used by the web REST client). Never falls back to the webview
- * origin — in the bundled app that is tauri://localhost, which fetch()
- * cannot reach. */
+ * origin — in the bundled app that is tauri://localhost (or a file://
+ * origin on mobile), which fetch() cannot reach. */
 export async function resolveBaseUrl(): Promise<string> {
-  let base: string | undefined;
-  try {
-    const settings = await tauriInvoke<{ serverUrl?: string }>('load_settings');
-    base = settings?.serverUrl;
-  } catch {
-    // Settings unavailable (e.g. missing zgDesktop) — fall through.
-  }
-  base = base || ((import.meta as any).env?.VITE_URL as string | undefined);
+  const settings = await loadShellSettings();
+  const base: string | undefined =
+    settings?.serverUrl ||
+    ((import.meta as any).env?.VITE_URL as string | undefined);
   if (!base) {
     throw new Error(
-      'no server URL configured: set VITE_URL at build time or configure the server in the desktop app settings',
+      'no server URL configured: set VITE_URL at build time or configure the server in the app settings',
     );
   }
-  // Normalize to the server root: strip a trailing /api (web REST convention)
-  // and any trailing slash so the engine's /api/sync/* paths resolve exactly
-  // once.
-  return base.replace(/\/?api\/?$/, '').replace(/\/$/, '');
+  return normalizeServerUrl(base);
+}
+
+/**
+ * Selects the storage adapter for the active shell. Desktop uses the Tauri
+ * IPC adapter; the mobile adapter (over the RN postMessage bridge to
+ * op-sqlite) lands in c6l.2 — until then the mobile webview stays a thin
+ * client (getSyncClient returns null, web behavior).
+ */
+function buildStorageAdapter(): TauriStorageAdapter | null {
+  if (isDesktopApp()) return new TauriStorageAdapter();
+  // TODO(c6l.2): return new MobileStorageAdapter() when zgMobile is present.
+  return null;
 }
 
 let client: SyncClient | null = null;
 let initPromise: Promise<SyncClient | null> | null = null;
 
-async function buildClient(): Promise<SyncClient> {
-  const storage = new TauriStorageAdapter();
+async function buildClient(): Promise<SyncClient | null> {
+  const storage = buildStorageAdapter();
+  if (!storage) return null; // web thin client (or mobile until c6l.2 lands)
   await storage.whenReady();
 
   const baseUrl = await resolveBaseUrl();
@@ -114,11 +157,12 @@ async function buildClient(): Promise<SyncClient> {
 }
 
 /**
- * Returns the desktop sync client, initializing it on first call. Returns
- * null in the web app (thin client — apiClient stays the data layer).
+ * Returns the native-shell sync client, initializing it on first call.
+ * Returns null in the web app (thin client — apiClient stays the data layer)
+ * and in the mobile webview until c6l.2 wires the bridge storage adapter.
  */
 export function getSyncClient(): Promise<SyncClient | null> {
-  if (!isDesktopApp()) return Promise.resolve(null);
+  if (!isNativeShell()) return Promise.resolve(null);
   if (client) return Promise.resolve(client);
   if (!initPromise) {
     initPromise = buildClient().catch((err) => {
