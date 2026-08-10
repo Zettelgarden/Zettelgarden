@@ -24,6 +24,7 @@ import { RSSArticle } from '../../api/rss';
 import { CategorizedReferences } from '../../api/cards';
 import { RelatedCards } from './RelatedCards';
 import { UnlinkedMentions } from './UnlinkedMentions';
+import { EgoNetwork } from './EgoNetwork';
 import { ChildrenCards } from './ChildrenCards';
 import { CardList } from './CardList';
 import { BacklinkInput } from './BacklinkInput';
@@ -251,6 +252,26 @@ export function ViewPageSidePanels({
       <div className="space-y-6">
         {rightPaneTab === 'links' && (
           <>
+            {/* Ego network (visual overview) */}
+            {onRelatedCardClick && (
+              <div>
+                <HeaderSubSection text="Network" />
+                <EgoNetwork
+                  center={viewingCard}
+                  parent={viewingCard.parent}
+                  children={viewingCard.children || []}
+                  references={[
+                    ...categorizedReferences.bidirectional,
+                    ...categorizedReferences.incoming,
+                    ...categorizedReferences.outgoing,
+                  ]}
+                  relatedCards={relatedCards || []}
+                  suggestions={suggestions || []}
+                  onCardClick={onRelatedCardClick}
+                />
+              </div>
+            )}
+
             {/* Children */}
             <div>
               <div className="flex items-center justify-between mb-2">

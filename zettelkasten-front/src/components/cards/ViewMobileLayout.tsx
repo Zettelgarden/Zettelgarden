@@ -26,6 +26,7 @@ import { ViewCardContentSection } from './ViewCardContentSection';
 import { SearchTagDropdown } from '../tags/SearchTagDropdown';
 import { RelatedCards } from './RelatedCards';
 import { UnlinkedMentions } from './UnlinkedMentions';
+import { EgoNetwork } from './EgoNetwork';
 import { ChildrenCards } from './ChildrenCards';
 import { CardList } from './CardList';
 import { BacklinkInput } from './BacklinkInput';
@@ -485,6 +486,25 @@ export function ViewMobileLayout({
                   </li>
                 ))}
               </ul>
+            </ViewMobileAccordion>
+          )}
+
+          {/* Network (ego) */}
+          {viewingCard && (
+            <ViewMobileAccordion title="Network">
+              <EgoNetwork
+                center={viewingCard}
+                parent={viewingCard.parent}
+                children={viewingCard.children || []}
+                references={[
+                  ...categorizedReferences.bidirectional,
+                  ...categorizedReferences.incoming,
+                  ...categorizedReferences.outgoing,
+                ]}
+                relatedCards={relatedCards || []}
+                suggestions={suggestions || []}
+                onCardClick={handleNavigate}
+              />
             </ViewMobileAccordion>
           )}
 
