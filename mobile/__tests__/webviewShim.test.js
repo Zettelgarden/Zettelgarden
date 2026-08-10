@@ -128,7 +128,8 @@ describe('bridge protocol (c6l.4 base)', () => {
     expect(source).toContain('window.__zgMobileInstalled');
     expect(source).toContain('window.zgMobile = shim.api');
     expect(source).toContain('"android"');
-    expect(source).toContain('Object.defineProperty(window, "localStorage"');
+    expect(source).toContain('Object.defineProperty(window, \'localStorage\'');
+    expect(source).toContain('[zg-mobile] bridge ready');
   });
 });
 

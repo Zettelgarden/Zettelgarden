@@ -51,6 +51,48 @@ jobs:
           name: zettelgarden-mobile-debug
           path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
 
+  android-e2e:
+    # Launch-chain smoke on a hardware-accelerated emulator (ubuntu runners
+    # expose /dev/kvm; the dev box does not — c6l.5 notes). Builds the real
+    # Go backend + APK, boots the emulator, and asserts RN boot → shim install
+    # → bridge handshake → webview load against a live backend.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install mobile deps
+        run: npm ci
+        working-directory: ./mobile
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: ./zettelkasten-front
+
+      - name: Run mobile E2E smoke (KVM emulator + live backend)
+        run: ./mobile/e2e/smoke.sh
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME_21_X64 }}
+
   ios-compile:
     # iOS run-verification is deferred (Phase 3b / p08 store builds); this
     # job only proves the RN app compiles for iOS on a macOS runner.

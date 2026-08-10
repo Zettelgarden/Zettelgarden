@@ -147,6 +147,16 @@ function App() {
     });
   }, []);
 
+  // Launch health markers for the E2E smoke (mobile/e2e/smoke.sh): the RN
+  // runtime boot, the WebView navigation, and (from inside the webview) the
+  // shim install + bridge handshake appear in logcat.
+  const onLoadStart = useCallback((event: { nativeEvent: { url: string } }) => {
+    console.log('[zg-mobile] onLoadStart', event.nativeEvent.url);
+  }, []);
+  const onLoadEnd = useCallback((event: { nativeEvent: { url: string } }) => {
+    console.log('[zg-mobile] onLoadEnd', event.nativeEvent.url);
+  }, []);
+
   const webViewProps: WebViewProps = {
     source: { uri: DEFAULT_SERVER_URL },
     style: styles.webview,
@@ -156,6 +166,8 @@ function App() {
     originWhitelist: ['*'],
     injectedJavaScriptBeforeContentLoaded: shimSource(Platform.OS),
     onMessage,
+    onLoadStart,
+    onLoadEnd,
     startInLoadingState: true,
     renderLoading: () => (
       <View style={styles.loading}>

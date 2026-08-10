@@ -44,3 +44,21 @@ npm run format:check   # prettier
 iOS run-verification is deliberately deferred (Linux dev box cannot run iOS
 simulators); iOS compiles via CI (`mobile.yml`, macos-latest) and run-verify
 lands with Phase 3b (store builds).
+
+## E2E smoke
+
+`mobile/e2e/smoke.sh` boots a hardware-accelerated emulator (KVM required),
+builds the real Go backend + APK, and asserts the launch chain against a live
+backend: RN boot → shim install → bridge handshake (ping + keychain prime) →
+WebView loads the frontend → no app crash. Engine-level offline convergence
+(mobile adapter + desktop client, one account) is covered by the sync-engine
+harness scenario 11.
+
+```bash
+./mobile/e2e/smoke.sh                       # CI (ubuntu-24.04, KVM)
+# On the dev box (no KVM, shared :5173):
+ZG_E2E_ALLOW_SOFTWARE=1 ZG_E2E_AVD=zgatd30 ./mobile/e2e/smoke.sh
+```
+
+Env overrides: `ZG_E2E_AVD`, `ZG_E2E_IMAGE`, `ZG_E2E_ALLOW_SOFTWARE=1`,
+`ZG_E2E_SKIP_PREVIEW=1` (reuse an existing :5173 server).
