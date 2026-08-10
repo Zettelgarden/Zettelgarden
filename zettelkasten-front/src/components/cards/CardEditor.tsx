@@ -4,6 +4,7 @@ import { PartialCard } from '../../models/Card';
 import { File } from '../../models/File';
 import { CardBodyTextArea, CardBodyTextAreaHandle } from './CardBodyTextArea';
 import { MarkdownToolbar } from './MarkdownToolbar';
+import { EditorLinkSuggestions } from './EditorLinkSuggestions';
 import { BacklinkDialog } from './BacklinkDialog';
 import { SaveAsTemplateDialog } from './SaveAsTemplateDialog';
 import { CardIdDiscoveryDialog } from './CardIdDiscoveryDialog';
@@ -144,6 +145,18 @@ export function CardEditor({
           newCard={newCard}
           filesToUpdate={filesToUpdate}
           setFilesToUpdate={setFilesToUpdate}
+        />
+
+        <EditorLinkSuggestions
+          card={editingCard}
+          newCard={newCard}
+          onInsertLink={(cardId, title) => {
+            const link = `[[${cardId}|${title}]]`;
+            setEditingCard({
+              ...editingCard,
+              body: editingCard.body + (editingCard.body ? '\n\n' : '') + link,
+            });
+          }}
         />
       </div>
 
