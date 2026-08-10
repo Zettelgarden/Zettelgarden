@@ -14,12 +14,12 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewProps } from 'react-native-webview';
 
 // Override at build time with the Vite dev server / bundled dist origin.
