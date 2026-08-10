@@ -47,18 +47,48 @@ func (failingKeyring) Get() (string, error) {
 }
 func (failingKeyring) Delete() error { return errors.New("no keyring provider") }
 
-// hangingKeyring blocks forever, simulating a stale DBus session bus.
-type hangingKeyring struct{}
+// hangingKeyring blocks forever, simulating a stale DBus session bus. It
+// records whether an operation was attempted so tests can prove the timeout
+// path really tried the keyring (rather than skipping it).
+type hangingKeyring struct {
+	calls int
+}
 
-func (hangingKeyring) Set(string) error     { select {} }
-func (hangingKeyring) Get() (string, error) { select {} }
-func (hangingKeyring) Delete() error        { select {} }
+func (h *hangingKeyring) Set(string) error {
+	h.calls++
+	select {}
+}
+func (h *hangingKeyring) Get() (string, error) {
+	h.calls++
+	select {}
+}
+func (h *hangingKeyring) Delete() error {
+	h.calls++
+	select {}
+}
+
+// setKeyringForTest swaps the keyring operator and restores it on cleanup. It
+// also pins the env so keyringAvailable() is true regardless of the host
+// (headless CI has no DBUS_SESSION_BUS_ADDRESS; ZETTELGARDEN_NO_KEYRING may
+// leak from another test's environment).
+func setKeyringForTest(t *testing.T, op keyringOperator) {
+	t.Helper()
+	old := keyringOp
+	oldTimeout := keyringTimeout
+	keyringOp = op
+	keyringTimeout = 50 * time.Millisecond
+	t.Setenv(EnvNoKeyring, "")
+	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/test")
+	t.Cleanup(func() {
+		keyringOp = old
+		keyringTimeout = oldTimeout
+	})
+}
 
 func TestResolveTokenKeyringTimeoutFallsBack(t *testing.T) {
 	t.Setenv(EnvToken, "")
-	keyringTimeout = 50 * time.Millisecond
-	defer func() { keyringTimeout = 3 * time.Second }()
-	keyringOp = hangingKeyring{}
+	keyring := &hangingKeyring{}
+	setKeyringForTest(t, keyring)
 
 	cfg := &Config{Token: "config-token"}
 	start := time.Now()
@@ -69,26 +99,68 @@ func TestResolveTokenKeyringTimeoutFallsBack(t *testing.T) {
 	if source != TokenFromConfig || token != "config-token" {
 		t.Fatalf("got token=%q source=%q, want config fallback", token, source)
 	}
-	if elapsed := time.Since(start); elapsed > 2*time.Second {
-		t.Errorf("fallback took %v; keyring timeout not applied", elapsed)
+	if keyring.calls == 0 {
+		t.Error("keyring was never attempted; timeout path is untested")
+	}
+	if elapsed := time.Since(start); elapsed < 40*time.Millisecond || elapsed > 2*time.Second {
+		t.Errorf("fallback took %v, want ~keyringTimeout (50ms)", elapsed)
 	}
 }
 
 func TestStoreTokenKeyringTimeoutFallsBack(t *testing.T) {
 	t.Setenv(EnvToken, "")
-	keyringTimeout = 50 * time.Millisecond
-	defer func() { keyringTimeout = 3 * time.Second }()
-	keyringOp = hangingKeyring{}
+	keyring := &hangingKeyring{}
+	setKeyringForTest(t, keyring)
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
 	cfg := &Config{APIURL: "http://example.com"}
+	start := time.Now()
 	stored, err := StoreToken(path, cfg, "zg_live_secret")
 	if err != nil {
 		t.Fatalf("StoreToken: %v", err)
 	}
 	if stored != "config" {
 		t.Errorf("stored in %q, want config fallback", stored)
+	}
+	if keyring.calls == 0 {
+		t.Error("keyring Set was never attempted")
+	}
+	if elapsed := time.Since(start); elapsed < 80*time.Millisecond || elapsed > 3*time.Second {
+		t.Errorf("fallback took %v, want ~Set timeout + re-check", elapsed)
+	}
+	// The token must actually be persisted to the config file.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if !strings.Contains(string(data), "zg_live_secret") {
+		t.Errorf("token not persisted to config file: %s", data)
+	}
+}
+
+func TestClearTokenReportsKeyringFailure(t *testing.T) {
+	t.Setenv(EnvToken, "")
+	setKeyringForTest(t, failingKeyring{})
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	cfg := &Config{APIURL: "http://example.com", Token: "zg_live_secret", APIKeyName: "cli", APIKeyID: 7}
+	if err := SaveConfig(path, cfg); err != nil {
+		t.Fatalf("SaveConfig: %v", err)
+	}
+
+	err := ClearToken(path, cfg)
+	if err == nil {
+		t.Fatal("ClearToken: expected error when keyring delete fails")
+	}
+	// The config file must still be cleared (and metadata dropped).
+	if cfg.Token != "" || cfg.APIKeyName != "" || cfg.APIKeyID != 0 {
+		t.Errorf("config not fully cleared: %+v", cfg)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "zg_live_secret") {
+		t.Errorf("token still in config file: %s", data)
 	}
 }
 
@@ -102,7 +174,7 @@ func TestResolveTokenPrecedence(t *testing.T) {
 
 	t.Run("flag beats everything", func(t *testing.T) {
 		t.Setenv(EnvToken, envToken)
-		keyringOp = &fakeKeyring{token: keyToken}
+		setKeyringForTest(t, &fakeKeyring{token: keyToken})
 		cfg := &Config{Token: cfgToken}
 		token, source, err := cfg.ResolveToken(flagToken)
 		if err != nil || token != flagToken || source != TokenFromFlag {
@@ -112,7 +184,7 @@ func TestResolveTokenPrecedence(t *testing.T) {
 
 	t.Run("env beats keyring and config", func(t *testing.T) {
 		t.Setenv(EnvToken, envToken)
-		keyringOp = &fakeKeyring{token: keyToken}
+		setKeyringForTest(t, &fakeKeyring{token: keyToken})
 		cfg := &Config{Token: cfgToken}
 		token, source, err := cfg.ResolveToken("")
 		if err != nil || token != envToken || source != TokenFromEnv {
@@ -122,7 +194,7 @@ func TestResolveTokenPrecedence(t *testing.T) {
 
 	t.Run("keyring beats config", func(t *testing.T) {
 		t.Setenv(EnvToken, "")
-		keyringOp = &fakeKeyring{token: keyToken}
+		setKeyringForTest(t, &fakeKeyring{token: keyToken})
 		cfg := &Config{Token: cfgToken}
 		token, source, err := cfg.ResolveToken("")
 		if err != nil || token != keyToken || source != TokenFromKeyring {
@@ -132,7 +204,7 @@ func TestResolveTokenPrecedence(t *testing.T) {
 
 	t.Run("config file fallback", func(t *testing.T) {
 		t.Setenv(EnvToken, "")
-		keyringOp = failingKeyring{}
+		setKeyringForTest(t, failingKeyring{})
 		cfg := &Config{Token: cfgToken}
 		token, source, err := cfg.ResolveToken("")
 		if err != nil || token != cfgToken || source != TokenFromConfig {
@@ -142,7 +214,7 @@ func TestResolveTokenPrecedence(t *testing.T) {
 
 	t.Run("no token anywhere", func(t *testing.T) {
 		t.Setenv(EnvToken, "")
-		keyringOp = failingKeyring{}
+		setKeyringForTest(t, failingKeyring{})
 		cfg := &Config{}
 		token, source, err := cfg.ResolveToken("")
 		if err != nil || token != "" || source != TokenFromNone {
@@ -209,7 +281,7 @@ func TestSaveConfigPermissions(t *testing.T) {
 func TestStoreTokenKeyringPreferred(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	keyringOp = &fakeKeyring{}
+	setKeyringForTest(t, &fakeKeyring{})
 
 	cfg := &Config{APIURL: "http://example.com"}
 	stored, err := StoreToken(path, cfg, "zg_live_secret")
@@ -238,7 +310,7 @@ func TestStoreTokenKeyringPreferred(t *testing.T) {
 func TestStoreTokenConfigFallback(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	keyringOp = failingKeyring{}
+	setKeyringForTest(t, failingKeyring{})
 
 	cfg := &Config{APIURL: "http://example.com", TimeoutSeconds: 30}
 	stored, err := StoreToken(path, cfg, "zg_live_secret")
@@ -267,7 +339,7 @@ func TestClearToken(t *testing.T) {
 	t.Setenv(EnvToken, "") // neutralize any ambient ZETTELGARDEN_TOKEN
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.json")
-	keyringOp = &fakeKeyring{}
+	setKeyringForTest(t, &fakeKeyring{})
 
 	cfg := &Config{APIURL: "http://example.com"}
 	if _, err := StoreToken(path, cfg, "zg_live_secret"); err != nil {

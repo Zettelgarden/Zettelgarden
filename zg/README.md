@@ -64,6 +64,11 @@ file (0600). Set `ZETTELGARDEN_NO_KEYRING=1` to skip the keyring entirely
 (e.g. headless CI). If a short-lived JWT is configured in place of an API key,
 zg prints a warning before it expires.
 
+Note: a token passed via `--token` (or `ZETTELGARDEN_TOKEN`) is not managed by
+`zg auth revoke`, which only clears the keyring/config copy — and a `--token`
+flag value is visible in `ps`/shell history. Prefer the keyring/config storage
+so the key stays revocable and out of process listings.
+
 ## Usage
 
 ### Cards

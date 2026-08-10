@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -55,19 +56,34 @@ var keyringOp keyringOperator = osKeyringOperator{}
 // servers, containers) have a DBUS_SESSION_BUS_ADDRESS pointing at a stale or
 // dead bus, which makes keyring.Open block indefinitely. zg is a short-lived
 // process, so a timed-out operation just falls back to the config file.
+//
+// Note: the blocked operation cannot be cancelled (godbus has no context
+// support), so on a dead bus one goroutine + DBus connection leaks per
+// invocation. That is acceptable for a one-shot CLI that exits after the
+// command; embedding zg's config package in a long-running process would need
+// a cancelable keyring backend instead.
 var keyringTimeout = 3 * time.Second
 
 // withKeyringTimeout runs fn, giving up after keyringTimeout and returning an
 // error so callers fall back to the config file.
 func withKeyringTimeout(fn func() error) error {
-	done := make(chan error, 1)
-	go func() { done <- fn() }()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(keyringTimeout):
-		return fmt.Errorf("keyring unavailable (timed out after %s)", keyringTimeout)
+	return withKeyringTimeoutBounded(keyringTimeout, fn)
+}
+
+// keyringAvailable reports whether attempting the OS keyring is worthwhile:
+// the keyring must be enabled (ZETTELGARDEN_NO_KEYRING unset/0/false) and, on
+// Linux, a session bus must be advertised. Headless machines without a bus
+// fail fast instead of paying the keyringTimeout wait.
+func keyringAvailable() bool {
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv(EnvNoKeyring))); v {
+	case "", "0", "false", "no":
+	default:
+		return false
 	}
+	if runtime.GOOS == "linux" && os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
+		return false
+	}
+	return true
 }
 
 // osKeyringOperator stores the API token in the OS keyring (libsecret /
@@ -122,7 +138,7 @@ func (c *Config) ResolveToken(flagToken string) (string, TokenSource, error) {
 	if flagToken != "" {
 		return flagToken, TokenFromFlag, nil
 	}
-	if envToken := os.Getenv(EnvToken); envToken != "" {
+	if envToken := strings.TrimSpace(os.Getenv(EnvToken)); envToken != "" {
 		return envToken, TokenFromEnv, nil
 	}
 	if token, err := loadKeyringToken(); err == nil {
@@ -134,15 +150,9 @@ func (c *Config) ResolveToken(flagToken string) (string, TokenSource, error) {
 	return "", TokenFromNone, nil
 }
 
-// keyringEnabled reports whether OS keyring access is allowed. Set
-// ZETTELGARDEN_NO_KEYRING to force config-file token storage.
-func keyringEnabled() bool {
-	return os.Getenv(EnvNoKeyring) == ""
-}
-
 func loadKeyringToken() (string, error) {
-	if !keyringEnabled() {
-		return "", errors.New("keyring disabled via " + EnvNoKeyring)
+	if !keyringAvailable() {
+		return "", errors.New("keyring unavailable")
 	}
 	var token string
 	err := withKeyringTimeout(func() error {
@@ -165,8 +175,8 @@ func loadKeyringToken() (string, error) {
 // is kept out of the config file.
 func StoreToken(configPath string, cfg *Config, token string) (string, error) {
 	keyringErr := withKeyringTimeout(func() error {
-		if !keyringEnabled() {
-			return errors.New("keyring disabled via " + EnvNoKeyring)
+		if !keyringAvailable() {
+			return errors.New("keyring unavailable")
 		}
 		return keyringOp.Set(token)
 	})
@@ -177,6 +187,29 @@ func StoreToken(configPath string, cfg *Config, token string) (string, error) {
 		}
 		return "keyring", nil
 	}
+
+	// The Set may have completed after the timeout fired (it cannot be
+	// cancelled). Re-check with a short bound so we don't also write the
+	// plaintext to config.json while the keyring already holds it.
+	recheck := keyringTimeout
+	if recheck > 500*time.Millisecond {
+		recheck = 500 * time.Millisecond
+	}
+	landed := false
+	withKeyringTimeoutBounded(recheck, func() error {
+		if _, err := keyringOp.Get(); err == nil {
+			landed = true
+		}
+		return nil
+	})
+	if landed {
+		cfg.Token = ""
+		if err := SaveConfig(configPath, cfg); err != nil {
+			return "", fmt.Errorf("save config: %w", err)
+		}
+		return "keyring", nil
+	}
+
 	cfg.Token = token
 	if err := SaveConfig(configPath, cfg); err != nil {
 		return "", err
@@ -184,22 +217,45 @@ func StoreToken(configPath string, cfg *Config, token string) (string, error) {
 	return "config", nil
 }
 
-// ClearToken removes the stored token from the keyring (best effort) and the
-// config file.
+// ClearToken removes the stored token from the config file and the keyring
+// (best effort). The config file is always cleared and saved; if the keyring
+// could not be cleared an error is returned so callers can warn that a stale
+// secret may remain in the OS keyring.
 func ClearToken(configPath string, cfg *Config) error {
-	_ = withKeyringTimeout(func() error {
-		if !keyringEnabled() {
-			return nil
+	keyringErr := withKeyringTimeout(func() error {
+		if !keyringAvailable() {
+			return nil // nothing stored in a keyring we never use
 		}
-		return keyringOp.Delete() // best effort; ignore "not found" / unavailable keyring
+		return keyringOp.Delete()
 	})
 	cfg.Token = ""
-	return SaveConfig(configPath, cfg)
+	cfg.APIKeyName = ""
+	cfg.APIKeyID = 0
+	if err := SaveConfig(configPath, cfg); err != nil {
+		return err
+	}
+	if keyringErr != nil {
+		return fmt.Errorf("config cleared, but keyring delete failed: %w", keyringErr)
+	}
+	return nil
+}
+
+// withKeyringTimeoutBounded is like withKeyringTimeout with an explicit bound
+// (used for short post-timeout re-checks).
+func withKeyringTimeoutBounded(d time.Duration, fn func() error) error {
+	done := make(chan error, 1)
+	go func() { done <- fn() }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(d):
+		return fmt.Errorf("keyring unavailable (timed out after %s)", d)
+	}
 }
 
 // SaveConfig writes cfg to path with 0600 permissions, creating parent
-// directories (0700) as needed. Existing files are tightened to 0600 as well
-// so a previously world-readable config gets fixed on the next save.
+// directories (0700) as needed. The write is atomic (temp file + rename) so a
+// crash mid-write can't leave a truncated config that hard-fails LoadConfig.
 func SaveConfig(path string, cfg *Config) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
@@ -208,9 +264,18 @@ func SaveConfig(path string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0600); err != nil {
 		return err
 	}
+	if err := os.Chmod(tmp, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	// Tighten perms on an existing file too (rename keeps tmp's 0600, but
+	// chmod is belt-and-braces against umask/ACL surprises).
 	return os.Chmod(path, 0600)
 }
 

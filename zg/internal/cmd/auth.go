@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -153,6 +154,14 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Email and password are required", "")
 	}
 
+	// Credentials travel in the request body; warn if they'd go over plaintext
+	// HTTP to a non-local host.
+	if u, parseErr := url.Parse(cfg.APIURL); parseErr == nil && u.Scheme == "http" {
+		if host := u.Hostname(); host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			fmt.Fprintf(os.Stderr, "warning: sending credentials over plaintext HTTP to %s; use an https:// URL in production\n", u.Host)
+		}
+	}
+
 	// 1. Exchange credentials for a session JWT (used once, below).
 	client := api.NewClient(cfg.APIURL, "", cfg.TimeoutSeconds)
 	loginBody, _ := json.Marshal(map[string]string{"email": email, "password": password})
@@ -271,10 +280,10 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		status.Warning = config.JWTMigrationNotice()
 	}
 
-	// Warn when the config file is world-readable (the token may be in it).
+	// Warn when the config file is too permissive (it may hold the token).
 	if configPath, err := getConfigPath(); err == nil {
 		if info, err := os.Stat(configPath); err == nil && info.Mode().Perm()&0o077 != 0 {
-			permWarning := fmt.Sprintf("config file is world-readable; run 'chmod 600 %s'", configPath)
+			permWarning := fmt.Sprintf("config file is group/world-readable (mode %o); run 'chmod 600 %s' (zg also re-tightens it on the next auth save)", info.Mode().Perm()&0o0777, configPath)
 			if status.Warning != "" {
 				status.Warning += " " + permWarning
 			} else {
@@ -288,9 +297,15 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		resp, err := client.Get("/api/api-keys")
 		if err == nil {
 			body, readErr := api.GetBodyBytes(resp)
+			var payload struct {
+				APIKeys []any `json:"api_keys"`
+			}
+			// Only claim validity when the server answered with the expected
+			// list shape; a 200 with HTML (dev-server SPA fallback) or an
+			// error JSON object does not count.
 			valid := resp.StatusCode == http.StatusOK &&
 				strings.Contains(resp.Header.Get("Content-Type"), "application/json") &&
-				readErr == nil && json.Valid(body)
+				readErr == nil && json.Unmarshal(body, &payload) == nil && payload.APIKeys != nil
 			status.TokenValid = &valid
 		}
 	}
@@ -311,22 +326,32 @@ func runAuthRevoke(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "No token configured", "Run `zg auth login` or `zg auth set <token>` first")
 	}
 
+	revokedOnServer := false
+	serverSkipped := ""
 	if cfg.APIKeyID > 0 {
 		client := api.NewClient(cfg.APIURL, token, cfg.TimeoutSeconds)
 		resp, err := client.Delete(fmt.Sprintf("/api/api-keys/%d", cfg.APIKeyID))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to revoke API key on server: %v\n", err)
+			serverSkipped = "server-side revoke failed"
 		} else {
 			api.GetBodyBytes(resp)
 			switch resp.StatusCode {
 			case http.StatusNoContent:
-				// revoked
+				revokedOnServer = true
 			case http.StatusNotFound:
 				fmt.Fprintln(os.Stderr, "note: API key was already revoked")
+				revokedOnServer = true
 			default:
 				fmt.Fprintf(os.Stderr, "warning: server returned %d while revoking API key\n", resp.StatusCode)
+				serverSkipped = fmt.Sprintf("server returned %d while revoking", resp.StatusCode)
 			}
 		}
+	} else {
+		// `zg auth set` only records the key name (the raw key is created in
+		// the web UI), so the server-side id is unknown. Revoking is still
+		// possible via Settings → API Keys in the app.
+		serverSkipped = "no API key id recorded (created via `zg auth set`?); revoke it in Settings → API Keys if needed"
 	}
 
 	configPath, err := getConfigPath()
@@ -334,9 +359,19 @@ func runAuthRevoke(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 	if err := config.ClearToken(configPath, cfg); err != nil {
-		return output.WriteError(os.Stdout, "Clearing token failed", err.Error())
+		// Config is already cleared; surface the stale-keyring risk as a
+		// warning rather than failing the command.
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 	}
-	return output.WriteMessage(os.Stdout, "API key revoked and removed from local storage")
+
+	switch {
+	case revokedOnServer:
+		return output.WriteMessage(os.Stdout, "API key revoked on server and removed from local storage")
+	case serverSkipped != "":
+		return output.WriteMessage(os.Stdout, "API key removed from local storage ("+serverSkipped+")")
+	default:
+		return output.WriteMessage(os.Stdout, "API key removed from local storage")
+	}
 }
 
 // loginErrorMessage extracts a human-readable message from a failed /api/login
