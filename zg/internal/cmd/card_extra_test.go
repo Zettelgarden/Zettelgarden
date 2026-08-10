@@ -71,3 +71,55 @@ func TestRunCardChildren(t *testing.T) {
 		t.Errorf("expected children in output, got %q", out)
 	}
 }
+
+func TestRunCardChildrenEmpty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(nil) // backend returns null for zero rows
+	}))
+	defer server.Close()
+	writeTestConfig(t, server.URL)
+
+	out := captureStdout(t, func() {
+		if err := runCardChildren(cardChildrenCmd, []string{"2"}); err != nil {
+			t.Fatalf("runCardChildren: %v", err)
+		}
+	})
+	if !strings.Contains(out, `"data":[]`) {
+		t.Errorf("expected empty array (not null) for no children, got %q", out)
+	}
+}
+
+func TestRunCardStarNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Card not found", http.StatusNotFound)
+	}))
+	defer server.Close()
+	writeTestConfig(t, server.URL)
+
+	out := captureStdout(t, func() {
+		if err := runCardStar(cardStarCmd, []string{"999"}); err != nil {
+			t.Fatalf("runCardStar: %v", err)
+		}
+	})
+	if !strings.Contains(out, "404") {
+		t.Errorf("expected 404 error output, got %q", out)
+	}
+}
+
+func TestRunCardUnstarNotStarred(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Card was not starred", http.StatusNotFound)
+	}))
+	defer server.Close()
+	writeTestConfig(t, server.URL)
+
+	out := captureStdout(t, func() {
+		if err := runCardUnstar(cardUnstarCmd, []string{"3"}); err != nil {
+			t.Fatalf("runCardUnstar: %v", err)
+		}
+	})
+	if !strings.Contains(out, "404") || !strings.Contains(out, "not starred") {
+		t.Errorf("expected not-starred error, got %q", out)
+	}
+}

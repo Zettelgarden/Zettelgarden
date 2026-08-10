@@ -70,6 +70,11 @@ derived from #hashtags in card bodies, so this fetches the card, appends
 
 var tagColor string
 
+// tagTokenRegex matches the backend's tag tokenization
+// (go-backend/services/tags.go ParseTagsFromCardBody: `#` + [\w-]+ after a line
+// start or whitespace).
+var tagTokenRegex = regexp.MustCompile(`(?:^|\s)(#[\w-]+)`)
+
 func init() {
 	tagCreateCmd.Flags().StringVar(&tagColor, "color", "black", "Tag color")
 	tagCmd.AddCommand(tagListCmd)
@@ -108,18 +113,26 @@ func runTagList(cmd *cobra.Command, args []string) error {
 	if err := json.Unmarshal(body, &tags); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
 	}
+	if tags == nil {
+		tags = []Tag{}
+	}
 
 	return output.WriteSuccess(os.Stdout, tags)
 }
 
 func runTagCreate(cmd *cobra.Command, args []string) error {
+	tagName := strings.TrimPrefix(strings.TrimSpace(args[0]), "#")
+	if !validTagName(tagName) {
+		return output.WriteError(os.Stdout, "Invalid tag name", fmt.Sprintf("%q cannot be a #hashtag (use letters, digits, underscores and hyphens only)", tagName))
+	}
+
 	cfg, err := loadConfig()
 	if err != nil {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
 	requestBody, _ := json.Marshal(map[string]string{
-		"name":  args[0],
+		"name":  tagName,
 		"color": tagColor,
 	})
 
@@ -202,6 +215,9 @@ func runTagCards(cmd *cobra.Command, args []string) error {
 	if err := json.Unmarshal(body, &tags); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
 	}
+	if tags == nil {
+		tags = []Tag{}
+	}
 
 	return output.WriteSuccess(os.Stdout, tags)
 }
@@ -210,13 +226,19 @@ func runTagCards(cmd *cobra.Command, args []string) error {
 // same tokenization as the backend (ParseTagsFromCardBody: `#` + [\w-]+ after a
 // line start or whitespace). #alpha-beta does not count as tag "alpha".
 func tagInBody(body, tagName string) bool {
-	re := regexp.MustCompile(`(?:^|\s)(#[\w-]+)`)
-	for _, m := range re.FindAllStringSubmatch(body, -1) {
+	for _, m := range tagTokenRegex.FindAllStringSubmatch(body, -1) {
 		if len(m) == 2 && m[1] == "#"+tagName {
 			return true
 		}
 	}
 	return false
+}
+
+// validTagName reports whether name can be represented as a #hashtag in a card
+// body (mirrors the backend tokenizer charset).
+func validTagName(name string) bool {
+	matched, _ := regexp.MatchString(`^[\w-]+$`, name)
+	return matched
 }
 
 func runTagAdd(cmd *cobra.Command, args []string) error {
@@ -225,8 +247,8 @@ func runTagAdd(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
 	}
 	tagName := strings.TrimPrefix(strings.TrimSpace(args[1]), "#")
-	if tagName == "" {
-		return output.WriteError(os.Stdout, "Tag name is required", "")
+	if !validTagName(tagName) {
+		return output.WriteError(os.Stdout, "Invalid tag name", fmt.Sprintf("%q cannot be a #hashtag (use letters, digits, underscores and hyphens only)", tagName))
 	}
 
 	cfg, err := loadConfig()

@@ -723,7 +723,8 @@ func runCardUnstar(cmd *cobra.Command, args []string) error {
 	return output.WriteMessage(os.Stdout, fmt.Sprintf("Card %d unstarred", cardID))
 }
 
-// PartialCard mirrors the backend model returned by /api/cards/{id}/children.
+// PartialCard mirrors the backend model returned by /api/cards/{id}/children
+// (go-backend/models/card.go).
 type PartialCard struct {
 	ID        int    `json:"id"`
 	CardID    string `json:"card_id"`
@@ -732,8 +733,7 @@ type PartialCard struct {
 	ParentID  *int   `json:"parent_id"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
-	Parent    *any   `json:"parent,omitempty"`
-	Tags      []Tag  `json:"tags,omitempty"`
+	Tags      []Tag  `json:"tags"`
 }
 
 func runCardChildren(cmd *cobra.Command, args []string) error {
@@ -764,6 +764,9 @@ func runCardChildren(cmd *cobra.Command, args []string) error {
 	var children []PartialCard
 	if err := json.Unmarshal(body, &children); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+	if children == nil {
+		children = []PartialCard{}
 	}
 
 	return output.WriteSuccess(os.Stdout, children)

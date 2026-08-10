@@ -3,8 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
-	"strconv"
 
 	"github.com/nick-zettelgarden/zg/internal/api"
 	"github.com/nick-zettelgarden/zg/internal/output"
@@ -39,8 +39,8 @@ var schemaListCmd = &cobra.Command{
 }
 
 var schemaGetCmd = &cobra.Command{
-	Use:   "get <id>",
-	Short: "Get a schema by ID",
+	Use:   "get <id-or-slug>",
+	Short: "Get a schema by ID or slug",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runSchemaGet,
 }
@@ -79,23 +79,23 @@ func runSchemaList(cmd *cobra.Command, args []string) error {
 	if err := json.Unmarshal(body, &schemas); err != nil {
 		return output.WriteError(os.Stdout, "Parse error", err.Error())
 	}
+	if schemas == nil {
+		schemas = []SchemaDefinition{}
+	}
 
 	return output.WriteSuccess(os.Stdout, schemas)
 }
 
 func runSchemaGet(cmd *cobra.Command, args []string) error {
-	schemaID, err := strconv.Atoi(args[0])
-	if err != nil {
-		return output.WriteError(os.Stdout, "Invalid schema ID", "ID must be a number")
-	}
-
 	cfg, err := loadConfig()
 	if err != nil {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
+	// The backend accepts a numeric id or a slug, so pass the reference
+	// through unchanged (URL-encoded by the client).
 	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
-	resp, err := client.Get(fmt.Sprintf("/api/schemas/%d", schemaID))
+	resp, err := client.Get(fmt.Sprintf("/api/schemas/%s", url.PathEscape(args[0])))
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
 	}

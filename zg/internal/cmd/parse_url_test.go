@@ -38,3 +38,20 @@ func TestRunParseURL(t *testing.T) {
 		t.Errorf("expected parsed content in output, got %q", out)
 	}
 }
+
+func TestRunParseURLServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "failed to parse url", http.StatusInternalServerError)
+	}))
+	defer server.Close()
+	writeTestConfig(t, server.URL)
+
+	out := captureStdout(t, func() {
+		if err := runParseURL(parseURLCmd, []string{"https://example.com/broken"}); err != nil {
+			t.Fatalf("runParseURL: %v", err)
+		}
+	})
+	if !strings.Contains(out, "500") || !strings.Contains(out, "failed to parse url") {
+		t.Errorf("expected 500 error surfaced, got %q", out)
+	}
+}
