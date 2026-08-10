@@ -52,6 +52,7 @@ interface ViewMobileLayoutProps {
   latestSummary: SummarizeJobResponse | null;
   relatedCards: RelatedCard[] | null;
   unlinkedMentions: UnlinkedMention[] | null;
+  suggestions: RelatedCard[] | null;
   tags: any[];
   sourceArticle?: RSSArticle;
   onEditCard: () => void;
@@ -63,6 +64,8 @@ interface ViewMobileLayoutProps {
   onAddBacklink: (selectedCard: PartialCard) => void;
   onUnlinkedMentionClick: (cardId: number) => void;
   onUnlinkedMentionAddLink: (mention: UnlinkedMention) => void;
+  onSuggestionClick: (cardId: number) => void;
+  onSuggestionAddReference: (card: RelatedCard) => void;
   handleOpenEntity: (entity: Entity) => void;
   onResummarize: () => void;
   onRecategorize: () => void;
@@ -87,6 +90,7 @@ export function ViewMobileLayout({
   latestSummary,
   relatedCards,
   unlinkedMentions,
+  suggestions,
   tags,
   sourceArticle,
   onEditCard,
@@ -98,6 +102,8 @@ export function ViewMobileLayout({
   onAddBacklink,
   onUnlinkedMentionClick,
   onUnlinkedMentionAddLink,
+  onSuggestionClick,
+  onSuggestionAddReference,
   handleOpenEntity,
   onResummarize,
   onRecategorize,
@@ -153,6 +159,7 @@ export function ViewMobileLayout({
   const hasEntities = linkedEntities && linkedEntities.length > 0;
   const hasRelatedCards = relatedCards && relatedCards.length > 0;
   const hasUnlinkedMentions = unlinkedMentions && unlinkedMentions.length > 0;
+  const hasSuggestions = suggestions && suggestions.length > 0;
 
   // Append a file reference to the card body and save (mirrors the desktop rail).
   async function handleDisplayFileOnCardClick(file: File) {
@@ -499,6 +506,18 @@ export function ViewMobileLayout({
                 mentions={unlinkedMentions!}
                 onCardClick={onUnlinkedMentionClick}
                 onAddLink={onUnlinkedMentionAddLink}
+              />
+            </ViewMobileAccordion>
+          )}
+
+          {/* Suggestions */}
+          {hasSuggestions && (
+            <ViewMobileAccordion title="Suggestions">
+              <RelatedCards
+                title="Suggestions"
+                relatedCards={suggestions!}
+                onCardClick={onSuggestionClick}
+                onAddReference={onSuggestionAddReference}
               />
             </ViewMobileAccordion>
           )}

@@ -546,3 +546,16 @@ export async function getOrphanCards(): Promise<PartialCard[]> {
     await apiClient.get<PartialCard[]>('/cards/orphans');
   return orphans;
 }
+
+/**
+ * Get second-degree suggestions for a card: cards referenced by cards that
+ * reference the given card.
+ */
+export async function getCardSuggestions(
+  cardId: string,
+): Promise<RelatedCard[]> {
+  const { data: suggestions } = await apiClient.get<RelatedCard[]>(
+    `/cards/${encodeURIComponent(cardId)}/suggestions`,
+  );
+  return suggestions;
+}

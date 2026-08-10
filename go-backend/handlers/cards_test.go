@@ -3204,6 +3204,144 @@ func TestGetOrphanCards(t *testing.T) {
 	}
 }
 
+// TestGetCardSuggestions verifies second-degree suggestions: cards referenced
+// by cards that reference the source, scored by co-occurrence, excluding the
+// source, direct references, family, and other users' cards.
+func TestGetCardSuggestions(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	createCard := func(userID int, cardID string) int {
+		var id int
+		if err := s.GetDB().QueryRow(`
+			INSERT INTO cards (user_id, card_id, title, body, link, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, '', datetime('now'), datetime('now'))
+			RETURNING id
+		`, userID, cardID, "Card "+cardID, "Body").Scan(&id); err != nil {
+			t.Fatalf("failed to create card %s: %v", cardID, err)
+		}
+		return id
+	}
+	addLink := func(src, tgt int) {
+		if _, err := s.GetDB().Exec(`
+			INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
+			VALUES ($1, $2, datetime('now'), datetime('now'))
+		`, src, tgt); err != nil {
+			t.Fatalf("failed to insert backlink: %v", err)
+		}
+	}
+
+	sourceID := createCard(1, "SRC")
+	aID := createCard(1, "FIRST_A")
+	bID := createCard(1, "FIRST_B")
+	xID := createCard(1, "SUGG_X")
+	yID := createCard(1, "SUGG_Y")
+	dID := createCard(1, "DIRECT_D")
+	u2tID := createCard(2, "U2_TARGET")
+	_ = u2tID
+
+	// A and B reference the source (first degree).
+	addLink(aID, sourceID)
+	addLink(bID, sourceID)
+	// A and B both reference X; A references Y and D.
+	addLink(aID, xID)
+	addLink(bID, xID)
+	addLink(aID, yID)
+	addLink(aID, dID)
+	// Source references D directly -> D is a direct reference (excluded).
+	addLink(sourceID, dID)
+	// A references a user-2 card -> excluded by ownership.
+	addLink(aID, u2tID)
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/"+strconv.Itoa(sourceID)+"/suggestions", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", strconv.Itoa(sourceID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/suggestions", s.JwtMiddleware(s.GetCardSuggestionsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v, body: %s", status, http.StatusOK, rr.Body.String())
+	}
+
+	var suggestions []models.RelatedCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &suggestions)
+
+	byID := make(map[string]models.RelatedCard)
+	for _, sg := range suggestions {
+		byID[sg.Card.CardID] = sg
+	}
+
+	x, ok := byID["SUGG_X"]
+	if !ok {
+		t.Error("expected SUGG_X to be suggested (referenced by A and B)")
+	} else {
+		if x.Score != 2 {
+			t.Errorf("expected SUGG_X score 2, got %v", x.Score)
+		}
+		if len(x.Reasons) == 0 || !strings.HasPrefix(x.Reasons[0], "referenced by 2 cards you reference") {
+			t.Errorf("unexpected reasons for SUGG_X: %v", x.Reasons)
+		}
+	}
+
+	if y, ok := byID["SUGG_Y"]; !ok {
+		t.Error("expected SUGG_Y to be suggested (referenced by A)")
+	} else if y.Score != 1 {
+		t.Errorf("expected SUGG_Y score 1, got %v", y.Score)
+	}
+
+	for _, excluded := range []string{"SRC", "FIRST_A", "FIRST_B", "DIRECT_D", "U2_TARGET"} {
+		if _, ok := byID[excluded]; ok {
+			t.Errorf("expected %s NOT to be suggested", excluded)
+		}
+	}
+}
+
+// TestGetCardSuggestions_Empty verifies an isolated card (no references)
+// yields no suggestions.
+func TestGetCardSuggestions_Empty(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	var isolatedID int
+	if err := s.GetDB().QueryRow(`
+		INSERT INTO cards (user_id, card_id, title, body, link, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, '', datetime('now'), datetime('now'))
+		RETURNING id
+	`, 1, "ISO_SUGG", "Isolated", "Body").Scan(&isolatedID); err != nil {
+		t.Fatalf("failed to create isolated card: %v", err)
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/"+strconv.Itoa(isolatedID)+"/suggestions", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", strconv.Itoa(isolatedID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/suggestions", s.JwtMiddleware(s.GetCardSuggestionsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var suggestions []models.RelatedCard
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &suggestions)
+	if len(suggestions) != 0 {
+		t.Errorf("expected no suggestions for isolated card, got %d", len(suggestions))
+	}
+}
+
 // TestEnvFloatAndEnvInt verifies the env helpers fall back to defaults for
 // unset and unparsable values.
 func TestEnvFloatAndEnvInt(t *testing.T) {

@@ -7,6 +7,7 @@ interface RelatedCardsProps {
   relatedCards: RelatedCard[];
   onCardClick: (cardId: number) => void;
   onAddReference?: (card: RelatedCard) => void;
+  title?: string;
 }
 
 type ReasonCategory = 'entities' | 'tags' | 'similarity';
@@ -49,6 +50,7 @@ export function RelatedCards({
   relatedCards,
   onCardClick,
   onAddReference,
+  title = 'Related Cards',
 }: RelatedCardsProps) {
   if (relatedCards.length === 0) {
     return null;
@@ -110,7 +112,7 @@ export function RelatedCards({
 
   return (
     <div>
-      <HeaderSubSection text="Related Cards" />
+      <HeaderSubSection text={title} />
       {shouldGroup ? (
         <div className="mt-2 space-y-3">
           {CATEGORY_LABELS.filter(({ key }) => categories.includes(key)).map(

@@ -25,6 +25,7 @@ import {
   getLinkedEntitiesByCardPK,
   getRelatedCards,
   getUnlinkedMentions,
+  getCardSuggestions,
 } from '../../api/cards';
 import { fetchSummariesForCard } from '../../api/summarizer';
 import { Card, PartialCard } from '../../models/Card';
@@ -40,6 +41,7 @@ vi.mock('../../api/cards', () => ({
   getLinkedEntitiesByCardPK: vi.fn(),
   getRelatedCards: vi.fn(),
   getUnlinkedMentions: vi.fn(),
+  getCardSuggestions: vi.fn(),
   saveExistingCard: vi.fn(),
 }));
 
@@ -113,6 +115,7 @@ describe('useViewPageContainer related cards filtering', () => {
     vi.mocked(getCardEntities).mockResolvedValue([]);
     vi.mocked(getLinkedEntitiesByCardPK).mockResolvedValue([]);
     vi.mocked(getUnlinkedMentions).mockResolvedValue([]);
+    vi.mocked(getCardSuggestions).mockResolvedValue([]);
     vi.mocked(fetchSummariesForCard).mockResolvedValue([]);
   });
 
@@ -194,9 +197,9 @@ describe('useViewPageContainer related cards filtering', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.data.unlinkedMentions?.map((m) => m.card.id)).toEqual(
-        [20],
-      );
+      expect(
+        result.current.data.unlinkedMentions?.map((m) => m.card.id),
+      ).toEqual([20]);
     });
     expect(getUnlinkedMentions).toHaveBeenCalledTimes(1);
 

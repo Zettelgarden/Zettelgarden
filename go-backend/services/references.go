@@ -277,6 +277,169 @@ func GetOrphanCards(db models.Database, userID int) ([]models.PartialCard, error
 	return orphans, nil
 }
 
+// GetSecondDegreeSuggestions returns cards referenced by cards that reference
+// the source card ("refs of refs"). Candidates are scored by how many of the
+// source's direct references link to them, and are excluded when they are the
+// source itself, a direct reference, or family (parent/siblings/children).
+func GetSecondDegreeSuggestions(db models.Database, userID int, sourceCard models.Card) ([]models.RelatedCard, error) {
+	// First degree: direct references (incoming + outgoing) of the source card.
+	references, err := GetReferences(db, userID, sourceCard)
+	if err != nil {
+		return nil, err
+	}
+
+	firstDegreeIDs := make(map[int]bool, len(references))
+	for _, ref := range references {
+		firstDegreeIDs[ref.ID] = true
+	}
+
+	// The source's outgoing links may live in the backlinks table without
+	// being derivable from the body (structured-data links, test fixtures) —
+	// include them so they are excluded as candidates too.
+	outRows, err := db.Query(`SELECT target_id_int FROM backlinks WHERE source_id_int = $1`, sourceCard.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query source outgoing links: %w", err)
+	}
+	defer outRows.Close()
+	for outRows.Next() {
+		var tgt int
+		if err := outRows.Scan(&tgt); err != nil {
+			return nil, fmt.Errorf("failed to scan source outgoing link: %w", err)
+		}
+		if tgt != sourceCard.ID {
+			firstDegreeIDs[tgt] = true
+		}
+	}
+	if err = outRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating source outgoing links: %w", err)
+	}
+	if len(firstDegreeIDs) == 0 {
+		return []models.RelatedCard{}, nil
+	}
+
+	// Second degree: outgoing links of first-degree cards, ownership-checked.
+	rows, err := db.Query(`
+		SELECT b.source_id_int, b.target_id_int
+		FROM backlinks b
+		JOIN cards c ON b.target_id_int = c.id
+		WHERE b.source_id_int IN `+models.InList(2, len(firstDegreeIDs))+`
+		  AND c.user_id = $1 AND c.is_deleted = FALSE
+	`, append([]any{userID}, models.IntArgs(intSetToSlice(firstDegreeIDs))...)...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query second-degree backlinks: %w", err)
+	}
+	defer rows.Close()
+
+	scores := make(map[int]int)
+	sourceIDsByTarget := make(map[int][]int)
+	for rows.Next() {
+		var src, tgt int
+		if err := rows.Scan(&src, &tgt); err != nil {
+			return nil, fmt.Errorf("failed to scan second-degree backlink: %w", err)
+		}
+		if tgt == sourceCard.ID || firstDegreeIDs[tgt] {
+			continue
+		}
+		scores[tgt]++
+		sourceIDsByTarget[tgt] = append(sourceIDsByTarget[tgt], src)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating second-degree backlinks: %w", err)
+	}
+
+	if len(scores) == 0 {
+		return []models.RelatedCard{}, nil
+	}
+
+	titleByID := make(map[int]string, len(references))
+	for _, ref := range references {
+		titleByID[ref.ID] = ref.Title
+	}
+
+	// Exclude family (already visible in the tree UI).
+	excludeIDs := make(map[int]bool)
+	if sourceCard.ParentID != nil && *sourceCard.ParentID != sourceCard.ID {
+		excludeIDs[*sourceCard.ParentID] = true
+	}
+	if children, err := GetChildCards(db, userID, sourceCard.ID); err == nil {
+		for _, child := range children {
+			excludeIDs[child.ID] = true
+		}
+	}
+	if sourceCard.ParentID != nil {
+		if siblings, err := GetChildCards(db, userID, *sourceCard.ParentID); err == nil {
+			for _, sib := range siblings {
+				excludeIDs[sib.ID] = true
+			}
+		}
+	}
+
+	var suggestions []models.RelatedCard
+	for targetID, count := range scores {
+		if excludeIDs[targetID] {
+			continue
+		}
+
+		partialCard, err := GetPartialCard(db, userID, targetID)
+		if err != nil {
+			log.Printf("Failed to get partial card %d: %v", targetID, err)
+			continue
+		}
+		tags, err := QueryTagsForCard(db, userID, targetID)
+		if err != nil {
+			log.Printf("Failed to fetch tags for card %d: %v", targetID, err)
+			partialCard.Tags = []models.Tag{}
+		} else {
+			partialCard.Tags = tags
+		}
+
+		reason := fmt.Sprintf("referenced by %d card%s you reference", count, pluralSuffix(count))
+		if count > 0 && len(sourceIDsByTarget[targetID]) <= 2 {
+			var names []string
+			for _, srcID := range sourceIDsByTarget[targetID] {
+				if title := titleByID[srcID]; title != "" {
+					names = append(names, title)
+				}
+			}
+			if len(names) > 0 {
+				reason = fmt.Sprintf("referenced by %d card%s you reference: %s", count, pluralSuffix(count), strings.Join(names, ", "))
+			}
+		}
+
+		suggestions = append(suggestions, models.RelatedCard{
+			Card:    partialCard,
+			Score:   float64(count),
+			Reasons: []string{reason},
+		})
+	}
+
+	sort.Slice(suggestions, func(i, j int) bool {
+		if suggestions[i].Score != suggestions[j].Score {
+			return suggestions[i].Score > suggestions[j].Score
+		}
+		return suggestions[i].Card.ID < suggestions[j].Card.ID
+	})
+
+	return suggestions, nil
+}
+
+// intSetToSlice converts a map[int]bool used as a set into a slice of ints.
+func intSetToSlice(set map[int]bool) []int {
+	out := make([]int, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	return out
+}
+
+// pluralSuffix returns "s" for counts != 1, else "".
+func pluralSuffix(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
 // GetDirectLinks extracts and resolves direct links (cards referenced in body) from a card
 func GetDirectLinks(db models.Database, userID int, card models.Card) ([]models.PartialCard, error) {
 	backlinkIDs := ExtractBacklinks(card.Body)

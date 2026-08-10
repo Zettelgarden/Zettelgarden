@@ -40,6 +40,19 @@ describe('RelatedCards', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('renders a custom title when provided', () => {
+    const cards = [makeRelatedCard(1, 'CARD-1', 'First Card', 6, [])];
+    renderWithRouter(
+      <RelatedCards
+        title="Suggestions"
+        relatedCards={cards}
+        onCardClick={() => {}}
+      />,
+    );
+    expect(screen.getByText('Suggestions')).toBeInTheDocument();
+    expect(screen.queryByText('Related Cards')).not.toBeInTheDocument();
+  });
+
   it('renders card titles and scores', () => {
     const cards = [
       makeRelatedCard(1, 'CARD-1', 'First Card', 4.2, []),

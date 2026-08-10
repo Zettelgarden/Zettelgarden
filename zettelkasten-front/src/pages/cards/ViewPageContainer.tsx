@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, PartialCard, Entity, RelatedCard, UnlinkedMention } from '../../models/Card';
+import {
+  Card,
+  PartialCard,
+  Entity,
+  RelatedCard,
+  UnlinkedMention,
+} from '../../models/Card';
 import { isErrorResponse } from '../../models/common';
 import { TaskListItem } from '../../components/tasks/TaskListItem';
 import { useTaskContext } from '../../contexts/TaskContext';
@@ -14,6 +20,7 @@ import {
   CategorizedReferences,
   getRelatedCards,
   getUnlinkedMentions,
+  getCardSuggestions,
 } from '../../api/cards';
 import { Menu } from '@headlessui/react';
 
@@ -55,6 +62,7 @@ interface ViewPageContainerData {
   latestSummary: SummarizeJobResponse | null;
   relatedCards: RelatedCard[] | null;
   unlinkedMentions: UnlinkedMention[] | null;
+  suggestions: RelatedCard[] | null;
   showingSummary: boolean;
   showIdDiscovery: boolean;
   error: string;
@@ -125,6 +133,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   const [showingSummary, setShowingSummary] = useState(false);
   const [showIdDiscovery, setShowIdDiscovery] = useState(false);
   const [relatedCards, setRelatedCards] = useState<RelatedCard[] | null>(null);
+  const [suggestions, setSuggestions] = useState<RelatedCard[] | null>(null);
   const [unlinkedMentions, setUnlinkedMentions] = useState<
     UnlinkedMention[] | null
   >(null);
@@ -236,6 +245,9 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
   /** Invalidate cached related cards so the fetch effect repopulates them. */
   const refreshRelatedCards = () => {
     setRelatedCards(null);
+    // Suggestions are driven by references, which change on body save, so
+    // refresh them together.
+    setSuggestions(null);
   };
 
   /** Invalidate cached unlinked mentions so the fetch effect repopulates them. */
@@ -258,8 +270,8 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
           cardData.fetchCard(id);
         }
       });
-      setUnlinkedMentions((prev) =>
-        prev?.filter((m) => m.card.id !== mention.card.id) ?? null,
+      setUnlinkedMentions(
+        (prev) => prev?.filter((m) => m.card.id !== mention.card.id) ?? null,
       );
     } catch (err) {
       console.error('Failed to add unlinked mention link:', err);
@@ -272,6 +284,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     // Reset view states when card changes
     setShowingSummary(false);
     setRelatedCards(null);
+    setSuggestions(null);
     setUnlinkedMentions(null);
   }, [id]);
 
@@ -310,6 +323,15 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
     }
   }, [cardData.viewingCard, unlinkedMentions]);
 
+  useEffect(() => {
+    // Fetch second-degree suggestions when viewingCard loads and cache is null.
+    if (cardData.viewingCard && suggestions === null) {
+      getCardSuggestions(cardData.viewingCard.id.toString())
+        .then(setSuggestions)
+        .catch((err) => console.error('Failed to fetch suggestions:', err));
+    }
+  }, [cardData.viewingCard, suggestions]);
+
   // Filter out related cards that already appear in the card's references so
   // the Related Cards list doesn't duplicate the Linked references section.
   // References can change after the related-cards fetch (e.g. adding a
@@ -338,6 +360,7 @@ export function useViewPageContainer({ cardId }: ViewPageProps): {
       latestSummary: cardData.latestSummary,
       relatedCards: filteredRelatedCards,
       unlinkedMentions,
+      suggestions,
       showingSummary,
       showIdDiscovery,
       error,

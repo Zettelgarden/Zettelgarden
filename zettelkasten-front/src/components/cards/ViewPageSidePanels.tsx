@@ -51,6 +51,9 @@ interface ViewPageSidePanelsProps {
   unlinkedMentions?: UnlinkedMention[];
   onUnlinkedMentionClick?: (cardId: number) => void;
   onUnlinkedMentionAddLink?: (mention: UnlinkedMention) => void;
+  suggestions?: RelatedCard[];
+  onSuggestionClick?: (cardId: number) => void;
+  onSuggestionAddReference?: (card: RelatedCard) => void;
   onCreateChildCard: () => void;
   categorizedReferences: CategorizedReferences;
   onAddBacklink: (selectedCard: PartialCard) => void;
@@ -79,6 +82,9 @@ export function ViewPageSidePanels({
   unlinkedMentions,
   onUnlinkedMentionClick,
   onUnlinkedMentionAddLink,
+  suggestions,
+  onSuggestionClick,
+  onSuggestionAddReference,
   onCreateChildCard,
   categorizedReferences,
   onAddBacklink,
@@ -357,6 +363,16 @@ export function ViewPageSidePanels({
                   onAddLink={onUnlinkedMentionAddLink}
                 />
               </Collapsible>
+            )}
+
+            {/* Second-degree suggestions */}
+            {suggestions && onSuggestionClick && (
+              <RelatedCards
+                title="Suggestions"
+                relatedCards={suggestions}
+                onCardClick={onSuggestionClick}
+                onAddReference={onSuggestionAddReference}
+              />
             )}
           </>
         )}

@@ -290,6 +290,33 @@ func (s *Handler) GetOrphanCardsRoute(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(orphans)
 }
 
+// GetCardSuggestionsRoute returns second-degree suggestions: cards referenced
+// by cards that reference the source card, scored by co-occurrence.
+func (s *Handler) GetCardSuggestionsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	cardID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil || cardID <= 0 {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	card, err := s.QueryFullCard(userID, cardID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	suggestions, err := services.GetSecondDegreeSuggestions(s.GetDB(), userID, card)
+	if err != nil {
+		log.Printf("Failed to get card suggestions: %v", err)
+		http.Error(w, "Failed to get card suggestions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(suggestions)
+}
+
 // GetCardRoute returns a specific card by ID with related details
 func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

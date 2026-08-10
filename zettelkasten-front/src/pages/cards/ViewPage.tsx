@@ -41,6 +41,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
     latestSummary,
     relatedCards,
     unlinkedMentions,
+    suggestions,
     showIdDiscovery,
     error,
     viewMode,
@@ -94,6 +95,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
         latestSummary={latestSummary}
         relatedCards={relatedCards}
         unlinkedMentions={unlinkedMentions}
+        suggestions={suggestions}
         tags={tags}
         sourceArticle={viewingCard.source_article}
         onEditCard={onEditCard}
@@ -118,6 +120,10 @@ export function ViewPage({ cardId }: { cardId?: string }) {
           navigate(`/app/card/${cardId}`);
         }}
         onUnlinkedMentionAddLink={addUnlinkedMentionLink}
+        onSuggestionClick={(cardId) => {
+          navigate(`/app/card/${cardId}`);
+        }}
+        onSuggestionAddReference={(rc) => onAddBacklink(rc.card)}
       />
     );
   }
@@ -204,10 +210,19 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                     sourceArticle={viewingCard.source_article}
                     relatedCards={relatedCards || undefined}
                     unlinkedMentions={unlinkedMentions || undefined}
+                    suggestions={suggestions || undefined}
                     onRelatedCardClick={(cardId) => {
                       navigate(`/app/card/${cardId}`);
                     }}
                     onRelatedCardAddReference={(rc) => {
+                      if (viewingCard) {
+                        onAddBacklink(rc.card);
+                      }
+                    }}
+                    onSuggestionClick={(cardId) => {
+                      navigate(`/app/card/${cardId}`);
+                    }}
+                    onSuggestionAddReference={(rc) => {
                       if (viewingCard) {
                         onAddBacklink(rc.card);
                       }
