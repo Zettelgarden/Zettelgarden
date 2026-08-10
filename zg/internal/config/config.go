@@ -2,13 +2,21 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
 	DefaultAPIURL      = "http://localhost:8080"
 	DefaultTimeoutSecs = 30
+
+	// EnvAPIURL overrides the configured API URL
+	// (precedence: --url flag > env > config file).
+	EnvAPIURL = "ZETTELGARDEN_API_URL"
 )
 
 type Config struct {
@@ -52,4 +60,26 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// ResolveAPIURL returns the effective API URL using precedence:
+// --url flag > ZETTELGARDEN_API_URL env var > config file value. The result
+// must be a valid http(s) URL so a malformed env var fails loudly instead of
+// producing confusing "connection refused" errors on every command.
+func (c *Config) ResolveAPIURL(flagURL string) (string, error) {
+	candidate := flagURL
+	if candidate == "" {
+		candidate = strings.TrimSpace(os.Getenv(EnvAPIURL))
+	}
+	if candidate == "" {
+		candidate = c.APIURL
+	}
+	if candidate == "" {
+		return "", errors.New("no API URL configured (set api_url in the config file, ZETTELGARDEN_API_URL, or --url)")
+	}
+	u, err := url.Parse(candidate)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", errors.New("invalid API URL " + fmt.Sprintf("%q", candidate) + " (must be an http(s) URL)")
+	}
+	return candidate, nil
 }

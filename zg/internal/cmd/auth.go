@@ -132,9 +132,11 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
-	if getAPIURL() != "" {
-		cfg.APIURL = getAPIURL()
+	apiURL, err := cfg.ResolveAPIURL(getAPIURL())
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
+	cfg.APIURL = apiURL
 
 	email := authEmail
 	if email == "" {
@@ -242,9 +244,11 @@ func runAuthSet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
-	if getAPIURL() != "" {
-		cfg.APIURL = getAPIURL()
+	apiURL, err := cfg.ResolveAPIURL(getAPIURL())
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
+	cfg.APIURL = apiURL
 
 	if config.IsJWT(token) {
 		fmt.Fprintln(os.Stderr, "warning: "+config.JWTMigrationNotice())

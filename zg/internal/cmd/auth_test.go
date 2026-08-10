@@ -19,7 +19,8 @@ import (
 func writeConfigContent(t *testing.T, content string) {
 	t.Helper()
 	t.Setenv(config.EnvNoKeyring, "1")
-	t.Setenv(config.EnvToken, "") // neutralize any ambient ZETTELGARDEN_TOKEN
+	t.Setenv(config.EnvToken, "")  // neutralize any ambient ZETTELGARDEN_TOKEN
+	t.Setenv(config.EnvAPIURL, "") // neutralize any ambient ZETTELGARDEN_API_URL
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.json")
 	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
@@ -119,6 +120,43 @@ func TestLoadConfigEnvBeatsConfig(t *testing.T) {
 	}
 	if cfg.Token != "env-token" {
 		t.Errorf("token = %q, want env-token", cfg.Token)
+	}
+}
+
+func TestLoadConfigEnvURLBeatsConfig(t *testing.T) {
+	writeConfigContent(t, `{"api_url": "http://config.example", "token": ""}`)
+	t.Setenv(config.EnvAPIURL, "http://env.example")
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.APIURL != "http://env.example" {
+		t.Errorf("api_url = %q, want env override http://env.example", cfg.APIURL)
+	}
+}
+
+func TestLoadConfigFlagBeatsEnvURL(t *testing.T) {
+	writeConfigContent(t, `{"api_url": "http://config.example", "token": ""}`)
+	t.Setenv(config.EnvAPIURL, "http://env.example")
+	SetAPIURL("http://flag.example")
+	t.Cleanup(func() { SetAPIURL("") })
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.APIURL != "http://flag.example" {
+		t.Errorf("api_url = %q, want flag override http://flag.example", cfg.APIURL)
+	}
+}
+
+func TestLoadConfigRejectsInvalidEnvURL(t *testing.T) {
+	writeConfigContent(t, `{"api_url": "http://config.example", "token": ""}`)
+	t.Setenv(config.EnvAPIURL, "not-a-url")
+
+	if _, err := loadConfig(); err == nil {
+		t.Fatal("expected error for invalid ZETTELGARDEN_API_URL")
 	}
 }
 

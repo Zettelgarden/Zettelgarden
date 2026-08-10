@@ -18,6 +18,7 @@ func writeTestConfig(t *testing.T, apiURL string) {
 	t.Helper()
 	t.Setenv(config.EnvNoKeyring, "1") // keep token resolution deterministic
 	t.Setenv(config.EnvToken, "")      // neutralize any ambient ZETTELGARDEN_TOKEN
+	t.Setenv(config.EnvAPIURL, "")     // neutralize any ambient ZETTELGARDEN_API_URL
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.json")
 	content := `{"api_url": "` + apiURL + `", "token": "test-token"}`
