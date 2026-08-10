@@ -43,6 +43,7 @@ func main() {
 	rootCmd.AddCommand(cmd.GetTaskCmd())
 	rootCmd.AddCommand(cmd.GetTemplateCmd())
 	rootCmd.AddCommand(cmd.GetAuthCmd())
+	rootCmd.AddCommand(cmd.GetArticleCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

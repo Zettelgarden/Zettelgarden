@@ -175,6 +175,17 @@ zg template list              # List all templates
 zg template get <id>          # Get a template by ID
 ```
 
+### Articles
+
+Create a card from a web page URL — the content is extracted, converted to
+markdown, and stored as a new card tagged `#to-read #reference` by default:
+
+```bash
+zg article create "https://example.com/post"   # Create an article card from a URL
+zg article create "https://example.com/post" -c 4.2   # With an explicit card ID
+zg article create "https://example.com/post" -t "#read-later"  # Custom tags
+```
+
 ### Global Flags
 
 - `--pretty` - Pretty-print JSON output
