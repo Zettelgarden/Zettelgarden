@@ -28,11 +28,11 @@ func searchPageServer(t *testing.T, requests *[]map[string]any) *httptest.Server
 		var results []map[string]any
 		for i := start; i < start+perPage; i++ {
 			results = append(results, map[string]any{
-				"id":     fmt.Sprintf("%d", i),
-				"type":   "card",
-				"title":  fmt.Sprintf("Card %d", i),
+				"id":      fmt.Sprintf("%d", i),
+				"type":    "card",
+				"title":   fmt.Sprintf("Card %d", i),
 				"preview": "body",
-				"score":  1.0,
+				"score":   1.0,
 			})
 		}
 		resp := map[string]any{
