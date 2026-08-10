@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/nick-zettelgarden/zg/internal/api"
 	"github.com/nick-zettelgarden/zg/internal/config"
 	"github.com/nick-zettelgarden/zg/internal/output"
+	"github.com/spf13/cobra"
 )
 
 // Card represents a Zettelgarden card
@@ -145,15 +145,15 @@ var (
 	listStarred bool
 	listFull    bool
 
-	createTitle   string
-	createBody    string
-	createLink    string
-	createCardID  string
-	createAutoID  bool
+	createTitle  string
+	createBody   string
+	createLink   string
+	createCardID string
+	createAutoID bool
 
-	updateTitle string
-	updateBody  string
-	updateLink  string
+	updateTitle  string
+	updateBody   string
+	updateLink   string
 	updateCardID string
 
 	searchFullText bool
@@ -1000,11 +1000,13 @@ func loadConfig() (*config.Config, error) {
 		return nil, err
 	}
 
-	// Apply command-line overrides, then resolve the token with precedence
-	// flag > env (ZETTELGARDEN_TOKEN) > keyring > config file.
-	if getAPIURL() != "" {
-		cfg.APIURL = getAPIURL()
+	// Resolve the API URL (flag > env > config file), then the token with
+	// precedence flag > env (ZETTELGARDEN_TOKEN) > keyring > config file.
+	apiURL, err := cfg.ResolveAPIURL(getAPIURL())
+	if err != nil {
+		return nil, err
 	}
+	cfg.APIURL = apiURL
 	token, source, err := cfg.ResolveToken(getAPIToken())
 	if err != nil {
 		return nil, err
