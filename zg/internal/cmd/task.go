@@ -199,11 +199,14 @@ func runTaskList(cmd *cobra.Command, args []string) error {
 	}
 
 	url := fmt.Sprintf("/api/tasks?limit=%d", taskListLimit)
-	if cmd.Flags().Changed("completed") {
-		url += "&completed=" + strconv.FormatBool(taskListCompleted)
+	if cmd.Flags().Changed("completed") && cmd.Flags().Changed("incomplete") {
+		return output.WriteError(os.Stdout, "Conflicting flags", "Cannot use --completed and --incomplete together")
 	}
-	if cmd.Flags().Changed("incomplete") {
-		url += "&completed=" + strconv.FormatBool(!taskListIncomplete)
+	if cmd.Flags().Changed("completed") && taskListCompleted {
+		url += "&completed=true"
+	}
+	if cmd.Flags().Changed("incomplete") && taskListIncomplete {
+		url += "&completed=false"
 	}
 	if taskListPriority != "" {
 		url += "&priority=" + taskListPriority
@@ -305,23 +308,44 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Invalid task ID", "ID must be a number")
 	}
 
+	if cmd.Flags().Changed("complete") && cmd.Flags().Changed("incomplete") {
+		return output.WriteError(os.Stdout, "Conflicting flags", "Cannot use --complete and --incomplete together")
+	}
+
+	// Check for requested updates up front so we don't fetch when there's
+	// nothing to do.
+	hasUpdate := taskUpdateTitle != "" || taskUpdateDescription != "" || taskUpdatePriority != "" || taskUpdateScheduled != "" || taskUpdateStatus != "" || cmd.Flags().Changed("complete") || cmd.Flags().Changed("incomplete")
+	if !hasUpdate {
+		return output.WriteError(os.Stdout, "No updates", "Specify at least one field")
+	}
+
 	cfg, err := loadConfig()
 	if err != nil {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
-	requestBody := map[string]any{}
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+
+	// The backend PUT /api/tasks/{id} replaces the whole row, so partial
+	// updates must be merged onto the full task object (same approach as the
+	// MCP server's update_task).
+	fetched, err := fetchTaskForUpdate(client, taskID)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Failed to fetch current task", err.Error())
+	}
+	requestBody := buildTaskUpdatePayload(fetched)
+
 	if taskUpdateTitle != "" {
 		requestBody["title"] = taskUpdateTitle
 	}
 	if taskUpdateDescription != "" {
 		requestBody["description"] = taskUpdateDescription
 	}
-	if cmd.Flags().Changed("complete") {
-		requestBody["is_complete"] = taskUpdateComplete
+	if cmd.Flags().Changed("complete") && taskUpdateComplete {
+		requestBody["is_complete"] = true
 	}
-	if cmd.Flags().Changed("incomplete") {
-		requestBody["is_complete"] = !taskUpdateIncomplete
+	if cmd.Flags().Changed("incomplete") && taskUpdateIncomplete {
+		requestBody["is_complete"] = false
 	}
 	if taskUpdatePriority != "" {
 		requestBody["priority"] = taskUpdatePriority
@@ -337,16 +361,11 @@ func runTaskUpdate(cmd *cobra.Command, args []string) error {
 		requestBody["status"] = taskUpdateStatus
 	}
 
-	if len(requestBody) == 0 {
-		return output.WriteError(os.Stdout, "No updates", "Specify at least one field")
-	}
-
 	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
 		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
 	}
 
-	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
 	resp, err := client.Put(fmt.Sprintf("/api/tasks/%d", taskID), bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
@@ -400,19 +419,24 @@ func runTaskComplete(cmd *cobra.Command, args []string) error {
 		return output.WriteError(os.Stdout, "Config error", err.Error())
 	}
 
-	// Mirror the MCP server's complete_task: set is_complete=true and
-	// status="done" so the two fields stay consistent.
-	requestBody := map[string]any{
-		"is_complete": true,
-		"status":      "done",
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+
+	// Mirror the MCP server's complete_task: fetch the task, then set
+	// is_complete=true and status="done" on the full object so the replace-
+	// semantics of PUT /api/tasks/{id} don't wipe the other fields.
+	fetched, err := fetchTaskForUpdate(client, taskID)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Failed to fetch current task", err.Error())
 	}
+	requestBody := buildTaskUpdatePayload(fetched)
+	requestBody["is_complete"] = true
+	requestBody["status"] = "done"
 
 	bodyBytes, err := json.Marshal(requestBody)
 	if err != nil {
 		return output.WriteError(os.Stdout, "JSON encode error", err.Error())
 	}
 
-	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
 	resp, err := client.Put(fmt.Sprintf("/api/tasks/%d", taskID), bodyBytes)
 	if err != nil {
 		return output.WriteError(os.Stdout, "API request failed", err.Error())
@@ -428,6 +452,53 @@ func runTaskComplete(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteMessage(os.Stdout, "Task marked complete")
+}
+
+// fetchTaskForUpdate loads the current task so updates can be applied on top
+// of the full object: the backend PUT /api/tasks/{id} replaces the row, so a
+// partial payload would zero out title/description/priority/card linkage.
+func fetchTaskForUpdate(client *api.Client, taskID int) (map[string]any, error) {
+	resp, err := client.Get(fmt.Sprintf("/api/tasks/%d", taskID))
+	if err != nil {
+		return nil, err
+	}
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("API error: %d: %s", resp.StatusCode, string(body))
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, err
+	}
+	return raw, nil
+}
+
+// buildTaskUpdatePayload returns the full replace-payload for PUT
+// /api/tasks/{id}, seeded from the fetched task (same fields the MCP server's
+// update_task sends back).
+func buildTaskUpdatePayload(fetched map[string]any) map[string]any {
+	payload := map[string]any{
+		"id":             fetched["id"],
+		"card_pk":        fetched["card_pk"],
+		"user_id":        fetched["user_id"],
+		"title":          fetched["title"],
+		"description":    fetched["description"],
+		"priority":       fetched["priority"],
+		"status":         fetched["status"],
+		"is_complete":    fetched["is_complete"],
+		"scheduled_date": fetched["scheduled_date"],
+		"due_date":       fetched["due_date"],
+		"reminder_time":  fetched["reminder_time"],
+	}
+	// sort_order is omitempty on the backend; only echo it back if present so
+	// we don't null it out for tasks that never had one.
+	if v, ok := fetched["sort_order"]; ok {
+		payload["sort_order"] = v
+	}
+	return payload
 }
 
 // GetTaskCmd returns the task command for registration
