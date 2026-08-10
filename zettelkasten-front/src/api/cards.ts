@@ -559,3 +559,17 @@ export async function getCardSuggestions(
   );
   return suggestions;
 }
+
+/**
+ * Get the shortest connection path between two cards (empty when
+ * disconnected).
+ */
+export async function getCardPath(
+  fromId: number,
+  toId: number,
+): Promise<PartialCard[]> {
+  const { data: path } = await apiClient.get<PartialCard[]>(
+    `/cards/${fromId}/path/${toId}`,
+  );
+  return path;
+}

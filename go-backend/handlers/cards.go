@@ -274,6 +274,43 @@ func (s *Handler) GetUnlinkedMentionsRoute(w http.ResponseWriter, r *http.Reques
 	json.NewEncoder(w).Encode(mentions)
 }
 
+// GetCardPathRoute returns the shortest path (as a card list) between two of
+// the current user's cards, or an empty list when disconnected.
+func (s *Handler) GetCardPathRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+
+	fromID, err := strconv.Atoi(mux.Vars(r)["from"])
+	if err != nil || fromID <= 0 {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
+	toID, err := strconv.Atoi(mux.Vars(r)["to"])
+	if err != nil || toID <= 0 {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	// Both endpoints must belong to the user (404 otherwise).
+	if _, err := s.QueryFullCard(userID, fromID); err != nil {
+		http.Error(w, "Card not found", http.StatusNotFound)
+		return
+	}
+	if _, err := s.QueryFullCard(userID, toID); err != nil {
+		http.Error(w, "Card not found", http.StatusNotFound)
+		return
+	}
+
+	path, err := services.FindPathBetweenCards(s.GetDB(), userID, fromID, toID)
+	if err != nil {
+		log.Printf("Failed to find card path: %v", err)
+		http.Error(w, "Failed to find card path", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(path)
+}
+
 // GetOrphanCardsRoute returns the current user's cards with no connections
 // (no references, no children, no shared entities/tags).
 func (s *Handler) GetOrphanCardsRoute(w http.ResponseWriter, r *http.Request) {

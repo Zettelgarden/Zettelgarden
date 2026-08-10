@@ -3342,6 +3342,131 @@ func TestGetCardSuggestions_Empty(t *testing.T) {
 	}
 }
 
+// TestGetCardPath verifies shortest-path finding over backlink and parent
+// edges, ownership, disconnected pairs, and self paths.
+func TestGetCardPath(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	createCard := func(userID int, cardID string, parentID *int) int {
+		var id int
+		var parent any
+		if parentID != nil {
+			parent = *parentID
+		} else {
+			parent = nil
+		}
+		if err := s.GetDB().QueryRow(`
+			INSERT INTO cards (user_id, card_id, title, body, link, parent_id, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, '', $5, datetime('now'), datetime('now'))
+			RETURNING id
+		`, userID, cardID, "Card "+cardID, "Body", parent).Scan(&id); err != nil {
+			t.Fatalf("failed to create card %s: %v", cardID, err)
+		}
+		return id
+	}
+	addLink := func(src, tgt int) {
+		if _, err := s.GetDB().Exec(`
+			INSERT INTO backlinks (source_id_int, target_id_int, created_at, updated_at)
+			VALUES ($1, $2, datetime('now'), datetime('now'))
+		`, src, tgt); err != nil {
+			t.Fatalf("failed to insert backlink: %v", err)
+		}
+	}
+	fetchPath := func(from, to int) []string {
+		token, _ := tests.GenerateTestJWT(1)
+		req, err := http.NewRequest("GET", "/api/cards/"+strconv.Itoa(from)+"/path/"+strconv.Itoa(to), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.SetPathValue("from", strconv.Itoa(from))
+		req.SetPathValue("to", strconv.Itoa(to))
+
+		rr := httptest.NewRecorder()
+		router := mux.NewRouter()
+		router.HandleFunc("/api/cards/{from}/path/{to}", s.JwtMiddleware(s.GetCardPathRoute))
+		router.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+		}
+		var path []models.PartialCard
+		tests.ParseJsonResponse(t, rr.Body.Bytes(), &path)
+		ids := make([]string, 0, len(path))
+		for _, c := range path {
+			ids = append(ids, c.CardID)
+		}
+		return ids
+	}
+
+	// A -> B -> C reference chain.
+	aID := createCard(1, "PATHA", nil)
+	bID := createCard(1, "PATHB", nil)
+	cID := createCard(1, "PATHC", nil)
+	addLink(aID, bID)
+	addLink(bID, cID)
+
+	// Parent chain P -> CH.
+	pID := createCard(1, "PARP", nil)
+	chID := createCard(1, "CHILD", &pID)
+
+	// Isolated cards (disconnected).
+	d1ID := createCard(1, "ISO_D1", nil)
+	d2ID := createCard(1, "ISO_D2", nil)
+
+	// User-2 card that would shortcut if ownership were ignored.
+	u2ID := createCard(2, "U2_MID", nil)
+	addLink(aID, u2ID)
+	addLink(u2ID, cID)
+
+	// Shortest path via the user-2 shortcut would be A -> U2 -> C (2 hops),
+	// but U2 must be excluded, so the path stays A -> B -> C (3 hops).
+	if got := fetchPath(aID, cID); len(got) != 3 || got[0] != "PATHA" || got[1] != "PATHB" || got[2] != "PATHC" {
+		t.Errorf("expected path [PATHA PATHB PATHC], got %v", got)
+	}
+
+	// Parent edge path.
+	if got := fetchPath(pID, chID); len(got) != 2 || got[0] != "PARP" || got[1] != "CHILD" {
+		t.Errorf("expected path [PARP CHILD], got %v", got)
+	}
+
+	// Disconnected pair -> empty.
+	if got := fetchPath(d1ID, d2ID); len(got) != 0 {
+		t.Errorf("expected empty path for disconnected cards, got %v", got)
+	}
+
+	// Self path -> empty.
+	if got := fetchPath(aID, aID); len(got) != 0 {
+		t.Errorf("expected empty path for self, got %v", got)
+	}
+}
+
+// TestGetCardPath_NotFound verifies 404 for cards the user does not own.
+func TestGetCardPath_NotFound(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Card 13 belongs to user 2.
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/13/path/1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("from", "13")
+	req.SetPathValue("to", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{from}/path/{to}", s.JwtMiddleware(s.GetCardPathRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("expected 404 for other user's card, got %v", status)
+	}
+}
+
 // TestEnvFloatAndEnvInt verifies the env helpers fall back to defaults for
 // unset and unparsable values.
 func TestEnvFloatAndEnvInt(t *testing.T) {

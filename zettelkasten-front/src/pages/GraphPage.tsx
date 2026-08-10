@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { getGraphData } from '../api/graph';
+import { getCardPath } from '../api/cards';
 import { GraphNode } from '../models/Graph';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { MobileTopBar } from '../components/layout/MobileTopBar';
@@ -37,6 +38,10 @@ function nodeTypeLabel(node: GraphNode): string {
   return node.type === 'card'
     ? node.card_id || node.label
     : `${node.type}: ${node.label}`;
+}
+
+function truncateLabel(label: string, max: number): string {
+  return label.length > max ? label.slice(0, max - 1) + '…' : label;
 }
 
 // Deterministic circle layout: cards on an outer ring, entities/tags on an
@@ -74,6 +79,9 @@ export function GraphPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pathStart, setPathStart] = useState<string | null>(null);
+  const [path, setPath] = useState<string[] | null>(null);
+  const [pathLoading, setPathLoading] = useState(false);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -133,8 +141,10 @@ export function GraphPage() {
   );
 
   useEffect(() => {
+    const pathSet = new Set(path ?? []);
     const rfNodes = visibleNodes.map((n) => {
       const pos = positions.get(n.id) || { x: 0, y: 0 };
+      const onPath = pathSet.has(n.id);
       return {
         id: n.id,
         position: pos,
@@ -142,7 +152,7 @@ export function GraphPage() {
         style: {
           background: NODE_COLORS[n.type] || '#94a3b8',
           color: '#fff',
-          border: 'none',
+          border: onPath ? '3px solid #f59e0b' : 'none',
           borderRadius: n.type === 'card' ? 8 : 999,
           fontSize: 12,
         },
@@ -151,20 +161,71 @@ export function GraphPage() {
     setNodes(rfNodes);
 
     const visibleEdgeIds = new Set(visibleIds);
-    const rfEdges = edgesData.filter(
-      (e) => visibleEdgeIds.has(e.source) && visibleEdgeIds.has(e.target),
-    );
+    const pathEdges = new Set<string>();
+    if (path && path.length > 1) {
+      for (let i = 0; i < path.length - 1; i++) {
+        pathEdges.add(`${path[i]}-${path[i + 1]}`);
+        pathEdges.add(`${path[i + 1]}-${path[i]}`);
+      }
+    }
+    const rfEdges = edgesData
+      .filter(
+        (e) => visibleEdgeIds.has(e.source) && visibleEdgeIds.has(e.target),
+      )
+      .map((e) => {
+        const onPath = pathEdges.has(`${e.source}-${e.target}`);
+        return onPath
+          ? {
+              ...e,
+              animated: true,
+              style: { stroke: '#f59e0b', strokeWidth: 3 },
+            }
+          : e;
+      });
     setEdges(rfEdges);
-  }, [visibleNodes, positions, edgesData, visibleIds, setNodes, setEdges]);
+  }, [
+    visibleNodes,
+    positions,
+    edgesData,
+    visibleIds,
+    path,
+    setNodes,
+    setEdges,
+  ]);
 
   const onNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
-      if (node.id.startsWith('card:')) {
-        const cardId = node.id.split(':')[1];
-        navigate(`/app/card/${cardId}`);
+    async (_event: React.MouseEvent, node: Node) => {
+      if (!node.id.startsWith('card:')) {
+        return;
+      }
+
+      if (pathStart === null) {
+        // First click: arm the path finder.
+        setPath(null);
+        setPathStart(node.id);
+        return;
+      }
+      if (pathStart === node.id) {
+        setPathStart(null);
+        return;
+      }
+
+      // Second click on a different card: compute and highlight the path.
+      const fromId = Number(pathStart.split(':')[1]);
+      const toId = Number(node.id.split(':')[1]);
+      setPathStart(null);
+      setPathLoading(true);
+      try {
+        const result = await getCardPath(fromId, toId);
+        setPath(result.map((c) => `card:${c.id}`));
+      } catch (err) {
+        console.error('Failed to find card path:', err);
+        setPath(null);
+      } finally {
+        setPathLoading(false);
       }
     },
-    [navigate],
+    [pathStart],
   );
 
   // Mobile fallback: read-only card list instead of the canvas.
@@ -240,7 +301,48 @@ export function GraphPage() {
         <div className="text-xs text-gray-400 ml-auto hidden md:block">
           {visibleNodes.length} nodes · {edges.length} links
         </div>
+        {path && path.length > 0 && (
+          <button
+            onClick={() => setPath(null)}
+            className="text-xs text-amber-600 hover:text-amber-800 ml-2"
+          >
+            Clear path
+          </button>
+        )}
       </div>
+
+      {pathStart && (
+        <div className="px-4 py-1.5 bg-amber-50 border-b text-xs text-amber-700">
+          Click another card to trace the connection path…
+        </div>
+      )}
+      {path && path.length > 0 && (
+        <div className="px-4 py-1.5 bg-amber-50 border-b text-xs text-amber-700 flex items-center gap-1 flex-wrap">
+          <span>Path:</span>
+          {path.map((id, i) => {
+            const node = graph.find((n) => n.id === id);
+            return (
+              <React.Fragment key={id}>
+                {i > 0 && <span>→</span>}
+                <button
+                  onClick={() => {
+                    const num = id.split(':')[1];
+                    navigate(`/app/card/${num}`);
+                  }}
+                  className="underline hover:text-amber-900"
+                >
+                  {node ? truncateLabel(node.label, 16) : id}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
+      {pathLoading && (
+        <div className="px-4 py-1.5 bg-amber-50 border-b text-xs text-amber-700">
+          Finding path…
+        </div>
+      )}
 
       {error && (
         <div className="p-4 text-red-600 bg-red-50 border-b">{error}</div>
