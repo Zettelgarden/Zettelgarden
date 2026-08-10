@@ -946,12 +946,21 @@ func loadConfig() (*config.Config, error) {
 		return nil, err
 	}
 
-	// Apply command-line overrides
+	// Apply command-line overrides, then resolve the token with precedence
+	// flag > env (ZETTELGARDEN_TOKEN) > keyring > config file.
 	if getAPIURL() != "" {
 		cfg.APIURL = getAPIURL()
 	}
-	if getAPIToken() != "" {
-		cfg.Token = getAPIToken()
+	token, source, err := cfg.ResolveToken(getAPIToken())
+	if err != nil {
+		return nil, err
+	}
+	cfg.Token = token
+
+	// Warn early when the configured token is a short-lived JWT so CLI auth
+	// doesn't silently break after the 15-day session expiry.
+	if (source == config.TokenFromConfig || source == config.TokenFromKeyring) && config.IsJWT(token) {
+		fmt.Fprintln(os.Stderr, "warning: "+config.JWTMigrationNotice())
 	}
 
 	return cfg, nil

@@ -16,23 +16,53 @@ Create `~/.config/zettelgarden/config.json`:
 ```bash
 mkdir -p ~/.config/zettelgarden
 cp config.example.json ~/.config/zettelgarden/config.json
-# Edit ~/.config/zettelgarden/config.json with your JWT token
 ```
 
 Or create manually:
 ```json
 {
   "api_url": "http://localhost:8080",
-  "token": "your-jwt-token-here"
+  "token": "zg_live_..."
 }
 ```
 
-Get your token from the Zettelgarden web UI.
+The config file is written with `0600` permissions so the token is not
+world-readable.
 
 **For local testing:** You can also use `./config.json` in the zg directory and run:
 ```bash
 ./zg --config ./config.json card list
 ```
+
+### Authentication (durable API keys)
+
+The web UI session tokens are short-lived JWTs that expire after **15 days**,
+so CLI auth would silently break. Use a durable API key instead (Settings →
+API Keys in the app); API keys never expire and work with the same `Bearer`
+header.
+
+**Interactive setup (recommended):**
+```bash
+zg auth login          # prompts for email/password, mints + stores an API key
+```
+
+**Manual setup:** create an API key in the web UI (Settings → API Keys), then:
+```bash
+zg auth set zg_live_...    # store the key created in the web UI
+```
+
+**Inspect / revoke:**
+```bash
+zg auth status             # shows token source + warns if a JWT is configured
+zg auth revoke             # revokes the stored API key and clears local storage
+```
+
+**Token precedence** (highest first): `--token` flag > `ZETTELGARDEN_TOKEN`
+env var > OS keyring (libsecret/Keychain/Credential Manager) > config file.
+Tokens are stored in the OS keyring when available, otherwise in the config
+file (0600). Set `ZETTELGARDEN_NO_KEYRING=1` to skip the keyring entirely
+(e.g. headless CI). If a short-lived JWT is configured in place of an API key,
+zg prints a warning before it expires.
 
 ## Usage
 

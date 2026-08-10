@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/nick-zettelgarden/zg/internal/config"
 )
 
 // writeTestConfig writes a temp config pointing at the given API URL and
@@ -14,6 +16,8 @@ import (
 // the CLI config overrides so tests don't leak state into each other.
 func writeTestConfig(t *testing.T, apiURL string) {
 	t.Helper()
+	t.Setenv(config.EnvNoKeyring, "1") // keep token resolution deterministic
+	t.Setenv(config.EnvToken, "")      // neutralize any ambient ZETTELGARDEN_TOKEN
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.json")
 	content := `{"api_url": "` + apiURL + `", "token": "test-token"}`

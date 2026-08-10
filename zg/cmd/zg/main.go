@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/nick-zettelgarden/zg/internal/cmd"
 	"github.com/nick-zettelgarden/zg/internal/output"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -42,6 +42,7 @@ func main() {
 	rootCmd.AddCommand(cmd.GetCardCmd())
 	rootCmd.AddCommand(cmd.GetTaskCmd())
 	rootCmd.AddCommand(cmd.GetTemplateCmd())
+	rootCmd.AddCommand(cmd.GetAuthCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)

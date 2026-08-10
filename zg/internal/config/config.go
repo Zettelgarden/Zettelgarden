@@ -15,6 +15,11 @@ type Config struct {
 	APIURL         string `json:"api_url"`
 	Token          string `json:"token"`
 	TimeoutSeconds int    `json:"timeout_seconds"`
+	// APIKeyName/APIKeyID record the API key minted by `zg auth login` so
+	// `zg auth status`/`revoke` can identify and manage it. The token itself
+	// lives in the OS keyring (or config.Token as a fallback).
+	APIKeyName string `json:"api_key_name,omitempty"`
+	APIKeyID   int    `json:"api_key_id,omitempty"`
 }
 
 // GetDefaultConfigPath returns the default config file location

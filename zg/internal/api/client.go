@@ -54,6 +54,19 @@ func (c *Client) Post(path string, body []byte) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
 
+// PostNoAuth performs a POST without the Authorization header (used for
+// public endpoints such as /api/login).
+func (c *Client) PostNoAuth(path string, body []byte) (*http.Response, error) {
+	url := c.buildURL(path)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	return c.httpClient.Do(req)
+}
+
 func (c *Client) Put(path string, body []byte) (*http.Response, error) {
 	url := c.buildURL(path)
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(body))

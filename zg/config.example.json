@@ -1,5 +1,5 @@
 {
   "api_url": "http://localhost:8080",
-  "token": "your-jwt-token-here",
+  "token": "your-zg_live-api-key-here",
   "timeout_seconds": 30
 }
