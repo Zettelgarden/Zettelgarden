@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { Card, PartialCard, RelatedCard } from '../../models/Card';
+import {
+  Card,
+  PartialCard,
+  RelatedCard,
+  UnlinkedMention,
+} from '../../models/Card';
 import { Entity } from '../../models/Card';
 import { HeaderSubSection } from '../Header';
 import { SearchTagDropdown } from '../tags/SearchTagDropdown';
@@ -18,6 +23,7 @@ import { CardStructuredDataDisplay } from '../schemas/CardStructuredDataDisplay'
 import { RSSArticle } from '../../api/rss';
 import { CategorizedReferences } from '../../api/cards';
 import { RelatedCards } from './RelatedCards';
+import { UnlinkedMentions } from './UnlinkedMentions';
 import { ChildrenCards } from './ChildrenCards';
 import { CardList } from './CardList';
 import { BacklinkInput } from './BacklinkInput';
@@ -42,6 +48,9 @@ interface ViewPageSidePanelsProps {
   relatedCards?: RelatedCard[];
   onRelatedCardClick?: (cardId: number) => void;
   onRelatedCardAddReference?: (card: RelatedCard) => void;
+  unlinkedMentions?: UnlinkedMention[];
+  onUnlinkedMentionClick?: (cardId: number) => void;
+  onUnlinkedMentionAddLink?: (mention: UnlinkedMention) => void;
   onCreateChildCard: () => void;
   categorizedReferences: CategorizedReferences;
   onAddBacklink: (selectedCard: PartialCard) => void;
@@ -67,6 +76,9 @@ export function ViewPageSidePanels({
   relatedCards,
   onRelatedCardClick,
   onRelatedCardAddReference,
+  unlinkedMentions,
+  onUnlinkedMentionClick,
+  onUnlinkedMentionAddLink,
   onCreateChildCard,
   categorizedReferences,
   onAddBacklink,
@@ -330,6 +342,21 @@ export function ViewPageSidePanels({
                 onCardClick={onRelatedCardClick}
                 onAddReference={onRelatedCardAddReference}
               />
+            )}
+
+            {/* Unlinked mentions */}
+            {onUnlinkedMentionClick && onUnlinkedMentionAddLink && (
+              <Collapsible
+                title="Unlinked mentions"
+                count={unlinkedMentions?.length ?? 0}
+                defaultOpen={(unlinkedMentions?.length ?? 0) > 0}
+              >
+                <UnlinkedMentions
+                  mentions={unlinkedMentions || []}
+                  onCardClick={onUnlinkedMentionClick}
+                  onAddLink={onUnlinkedMentionAddLink}
+                />
+              </Collapsible>
             )}
           </>
         )}

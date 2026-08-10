@@ -2948,6 +2948,156 @@ func TestGetRelatedCards_MaxResultsLimit(t *testing.T) {
 	}
 }
 
+// TestGetUnlinkedMentions verifies detection of plain-text card_id mentions
+// that are not linked, including already-linked exclusion, ownership, and
+// word-boundary handling.
+func TestGetUnlinkedMentions(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Source card with a mentionable (non-numeric) card_id.
+	var sourceID int
+	if err := s.GetDB().QueryRow(`
+		INSERT INTO cards (user_id, card_id, title, body, link, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, '', datetime('now'), datetime('now'))
+		RETURNING id
+	`, 1, "REFXYZ", "Source", "Source body").Scan(&sourceID); err != nil {
+		t.Fatalf("failed to create source card: %v", err)
+	}
+
+	// Card A: mentions REFXYZ in plain text once.
+	// Card B: already links to REFXYZ - must be excluded.
+	// Card C: mentions REFXYZ twice - count should be 2.
+	// Card E: contains REFXYZ2 - word boundary, must NOT match REFXYZ.
+	// Card D (user 2): mentions REFXYZ - must be excluded by ownership.
+	cards := []struct {
+		userID int
+		cardID string
+		body   string
+	}{
+		{1, "MENTION_A", "Some intro. See REFXYZ for the full notes."},
+		{1, "MENTION_B", "Already linked via [[REFXYZ]] here."},
+		{1, "MENTION_C", "REFXYZ covers this, and REFXYZ also covers that."},
+		{1, "MENTION_E", "REFXYZ2 is a different id, not a match."},
+		{2, "MENTION_D", "REFXYZ belongs to another user."},
+	}
+	for _, c := range cards {
+		if _, err := s.GetDB().Exec(`
+			INSERT INTO cards (user_id, card_id, title, body, link, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, '', datetime('now'), datetime('now'))
+		`, c.userID, c.cardID, "Mention Card", c.body); err != nil {
+			t.Fatalf("failed to create card %s: %v", c.cardID, err)
+		}
+	}
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/"+strconv.Itoa(sourceID)+"/unlinked-mentions", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", strconv.Itoa(sourceID))
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/unlinked-mentions", s.JwtMiddleware(s.GetUnlinkedMentionsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v, body: %s", status, http.StatusOK, rr.Body.String())
+	}
+
+	var mentions []models.UnlinkedMention
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &mentions)
+
+	byID := make(map[string]models.UnlinkedMention)
+	for _, m := range mentions {
+		byID[m.Card.CardID] = m
+	}
+
+	a, ok := byID["MENTION_A"]
+	if !ok {
+		t.Error("expected MENTION_A to be returned (plain-text mention)")
+	} else {
+		if a.MentionCount != 1 {
+			t.Errorf("expected MENTION_A count 1, got %d", a.MentionCount)
+		}
+		if a.ContextSnippet == "" || !strings.Contains(a.ContextSnippet, "REFXYZ") {
+			t.Errorf("expected non-empty snippet containing REFXYZ, got %q", a.ContextSnippet)
+		}
+	}
+
+	if c, ok := byID["MENTION_C"]; !ok {
+		t.Error("expected MENTION_C to be returned (two mentions)")
+	} else if c.MentionCount != 2 {
+		t.Errorf("expected MENTION_C count 2, got %d", c.MentionCount)
+	}
+
+	if _, ok := byID["MENTION_B"]; ok {
+		t.Error("MENTION_B already links to REFXYZ and must be excluded")
+	}
+	if _, ok := byID["MENTION_E"]; ok {
+		t.Error("MENTION_E contains REFXYZ2, which must not match REFXYZ")
+	}
+	if _, ok := byID["MENTION_D"]; ok {
+		t.Error("MENTION_D belongs to another user and must be excluded")
+	}
+}
+
+// TestGetUnlinkedMentions_NumericCardID verifies numeric-only card_ids are
+// skipped (they would match nearly every body).
+func TestGetUnlinkedMentions_NumericCardID(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	// Card 1 has card_id "1" (fixture) - numeric-only, must return empty.
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/1/unlinked-mentions", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "1")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/unlinked-mentions", s.JwtMiddleware(s.GetUnlinkedMentionsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var mentions []models.UnlinkedMention
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &mentions)
+	if len(mentions) != 0 {
+		t.Errorf("expected empty mentions for numeric card_id, got %d", len(mentions))
+	}
+}
+
+// TestGetUnlinkedMentions_NonExistentCard verifies 404 for unknown cards.
+func TestGetUnlinkedMentions_NonExistentCard(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/cards/99999/unlinked-mentions", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.SetPathValue("id", "99999")
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/cards/{id}/unlinked-mentions", s.JwtMiddleware(s.GetUnlinkedMentionsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("Expected status code %v for non-existent card, got %v", http.StatusNotFound, status)
+	}
+}
+
 // TestEnvFloatAndEnvInt verifies the env helpers fall back to defaults for
 // unset and unparsable values.
 func TestEnvFloatAndEnvInt(t *testing.T) {

@@ -38,6 +38,12 @@ export interface RelatedCard {
   reasons: string[];
 }
 
+export interface UnlinkedMention {
+  card: PartialCard;
+  mention_count: number;
+  context_snippet: string;
+}
+
 export interface Card {
   id: number;
   card_id: string;

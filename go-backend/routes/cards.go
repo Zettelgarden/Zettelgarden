@@ -19,6 +19,7 @@ func RegisterCardRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/cards/{id}/star", h.UnstarCardRoute, "DELETE")
 	addProtectedRoute(r, h, "/api/cards/{id}/facts", h.GetCardFacts, "GET")
 	addProtectedRoute(r, h, "/api/cards/{id}/references", h.GetCardReferencesRoute, "GET")
+	addProtectedRoute(r, h, "/api/cards/{id}/unlinked-mentions", h.GetUnlinkedMentionsRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/{id}/children", h.GetCardChildrenRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/{id}/related", h.GetRelatedCardsRoute, "GET")
 	addProtectedRoute(r, h, "/api/cards/{id}/tree", h.GetCardWithDescendantsRoute, "GET")

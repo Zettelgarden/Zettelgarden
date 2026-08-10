@@ -6,6 +6,7 @@ import {
   SearchResult,
   defaultCard,
   RelatedCard,
+  UnlinkedMention,
 } from '../models/Card';
 import { apiClient, getData } from './client';
 import { getDataProvider } from '../data/provider';
@@ -521,4 +522,17 @@ export async function getRelatedCards(cardId: string): Promise<RelatedCard[]> {
     `/cards/${encodeURIComponent(cardId)}/related`,
   );
   return relatedCards;
+}
+
+/**
+ * Get cards that mention the given card's card_id in their body without
+ * linking to it.
+ */
+export async function getUnlinkedMentions(
+  cardId: string,
+): Promise<UnlinkedMention[]> {
+  const { data: mentions } = await apiClient.get<UnlinkedMention[]>(
+    `/cards/${encodeURIComponent(cardId)}/unlinked-mentions`,
+  );
+  return mentions;
 }

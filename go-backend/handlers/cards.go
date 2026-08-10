@@ -247,6 +247,33 @@ func (s *Handler) GetCardReferencesRoute(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(categorized)
 }
 
+// GetUnlinkedMentionsRoute returns cards that mention the source card's
+// card_id in their body without linking to it.
+func (s *Handler) GetUnlinkedMentionsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	cardID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil || cardID <= 0 {
+		http.Error(w, "Invalid card ID", http.StatusBadRequest)
+		return
+	}
+
+	card, err := s.QueryFullCard(userID, cardID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	mentions, err := services.GetUnlinkedMentions(s.GetDB(), userID, card)
+	if err != nil {
+		log.Printf("Failed to find unlinked mentions: %v", err)
+		http.Error(w, "Failed to find unlinked mentions", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(mentions)
+}
+
 // GetCardRoute returns a specific card by ID with related details
 func (s *Handler) GetCardRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)

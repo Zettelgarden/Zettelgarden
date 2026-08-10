@@ -1,10 +1,139 @@
 package services
 
 import (
+	"fmt"
 	"go-backend/models"
 	"log"
+	"regexp"
 	"sort"
+	"strings"
 )
+
+// hasAlphabeticChar reports whether s contains at least one ASCII letter.
+// Numeric-only card_ids (e.g. "1", "42") appear too commonly in prose to be
+// meaningful unlinked-mention targets, so they are skipped.
+func hasAlphabeticChar(s string) bool {
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
+// snippetAround returns up to radius runes on each side of the byte range
+// [loc[0], loc[1]) in body, with ellipses when trimmed.
+func snippetAround(body string, loc []int, radius int) string {
+	start := loc[0] - radius
+	if start < 0 {
+		start = 0
+	}
+	end := loc[1] + radius
+	if end > len(body) {
+		end = len(body)
+	}
+	snippet := strings.TrimSpace(body[start:end])
+	if start > 0 {
+		snippet = "..." + snippet
+	}
+	if end < len(body) {
+		snippet = snippet + "..."
+	}
+	return snippet
+}
+
+// GetUnlinkedMentions finds cards that mention the source card's card_id in
+// their body without linking to it. Cards that already link to the source
+// (via [[card_id]], [[card_id|label]], or legacy [card_id] syntax) are
+// excluded. Returns the mention count and a context snippet per card.
+func GetUnlinkedMentions(db models.Database, userID int, sourceCard models.Card) ([]models.UnlinkedMention, error) {
+	// Numeric-only card_ids would match nearly every body; skip them.
+	if !hasAlphabeticChar(sourceCard.CardID) {
+		return []models.UnlinkedMention{}, nil
+	}
+
+	rows, err := db.Query(`
+		SELECT id, body
+		FROM cards
+		WHERE user_id = $1 AND is_deleted = FALSE AND id != $2 AND instr(body, $3) > 0
+	`, userID, sourceCard.ID, sourceCard.CardID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query mention candidates: %w", err)
+	}
+	defer rows.Close()
+
+	mentionRe := regexp.MustCompile(`\b` + regexp.QuoteMeta(sourceCard.CardID) + `\b`)
+	alreadyLinked := make(map[int]bool)
+
+	type candidate struct {
+		id    int
+		count int
+		loc   []int
+		body  string
+	}
+	var candidates []candidate
+	for rows.Next() {
+		var id int
+		var body string
+		if err := rows.Scan(&id, &body); err != nil {
+			return nil, fmt.Errorf("failed to scan mention candidate: %w", err)
+		}
+
+		// Skip cards that already link to the source card.
+		if !alreadyLinked[id] {
+			for _, linked := range ExtractBacklinks(body) {
+				if linked == sourceCard.CardID {
+					alreadyLinked[id] = true
+					break
+				}
+			}
+		}
+		if alreadyLinked[id] {
+			continue
+		}
+
+		locs := mentionRe.FindAllStringIndex(body, -1)
+		if len(locs) > 0 {
+			candidates = append(candidates, candidate{id: id, count: len(locs), loc: locs[0], body: body})
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating mention candidates: %w", err)
+	}
+
+	mentions := make([]models.UnlinkedMention, 0, len(candidates))
+	for _, cand := range candidates {
+		partialCard, err := GetPartialCard(db, userID, cand.id)
+		if err != nil {
+			log.Printf("Failed to get partial card %d: %v", cand.id, err)
+			continue
+		}
+		tags, err := QueryTagsForCard(db, userID, cand.id)
+		if err != nil {
+			log.Printf("Failed to fetch tags for card %d: %v", cand.id, err)
+			partialCard.Tags = []models.Tag{}
+		} else {
+			partialCard.Tags = tags
+		}
+
+		mentions = append(mentions, models.UnlinkedMention{
+			Card:           partialCard,
+			MentionCount:   cand.count,
+			ContextSnippet: snippetAround(cand.body, cand.loc, 40),
+		})
+	}
+
+	// Sort by mention count descending, then card id.
+	sort.Slice(mentions, func(i, j int) bool {
+		if mentions[i].MentionCount != mentions[j].MentionCount {
+			return mentions[i].MentionCount > mentions[j].MentionCount
+		}
+		return mentions[i].Card.ID < mentions[j].Card.ID
+	})
+
+	return mentions, nil
+}
 
 // GetDirectLinks extracts and resolves direct links (cards referenced in body) from a card
 func GetDirectLinks(db models.Database, userID int, card models.Card) ([]models.PartialCard, error) {

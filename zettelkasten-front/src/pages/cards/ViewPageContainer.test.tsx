@@ -24,6 +24,7 @@ import {
   getCardEntities,
   getLinkedEntitiesByCardPK,
   getRelatedCards,
+  getUnlinkedMentions,
 } from '../../api/cards';
 import { fetchSummariesForCard } from '../../api/summarizer';
 import { Card, PartialCard } from '../../models/Card';
@@ -38,6 +39,7 @@ vi.mock('../../api/cards', () => ({
   getCardEntities: vi.fn(),
   getLinkedEntitiesByCardPK: vi.fn(),
   getRelatedCards: vi.fn(),
+  getUnlinkedMentions: vi.fn(),
   saveExistingCard: vi.fn(),
 }));
 
@@ -110,6 +112,7 @@ describe('useViewPageContainer related cards filtering', () => {
     vi.mocked(getCardTasks).mockResolvedValue([]);
     vi.mocked(getCardEntities).mockResolvedValue([]);
     vi.mocked(getLinkedEntitiesByCardPK).mockResolvedValue([]);
+    vi.mocked(getUnlinkedMentions).mockResolvedValue([]);
     vi.mocked(fetchSummariesForCard).mockResolvedValue([]);
   });
 
@@ -174,5 +177,36 @@ describe('useViewPageContainer related cards filtering', () => {
       );
     });
     expect(getRelatedCards).toHaveBeenCalledTimes(2);
+  });
+
+  it('fetches unlinked mentions and removes one after adding a link', async () => {
+    const mentionCard = makePartialCard(20, 'MENTION-20');
+    vi.mocked(getUnlinkedMentions).mockResolvedValue([
+      {
+        card: mentionCard,
+        mention_count: 1,
+        context_snippet: '...mentions viewed-card here...',
+      },
+    ]);
+
+    const { result } = renderHook(() => useViewPageContainer({ cardId: '1' }), {
+      wrapper,
+    });
+
+    await waitFor(() => {
+      expect(result.current.data.unlinkedMentions?.map((m) => m.card.id)).toEqual(
+        [20],
+      );
+    });
+    expect(getUnlinkedMentions).toHaveBeenCalledTimes(1);
+
+    // Adding a link drops the mention from the list (viewing card is id 1).
+    await act(async () => {
+      await result.current.actions.addUnlinkedMentionLink(
+        result.current.data.unlinkedMentions![0],
+      );
+    });
+
+    expect(result.current.data.unlinkedMentions).toEqual([]);
   });
 });

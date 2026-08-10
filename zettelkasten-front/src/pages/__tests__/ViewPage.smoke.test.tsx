@@ -22,6 +22,7 @@ vi.mock('../../api/cards', () => ({
   getCardEntities: vi.fn(),
   getLinkedEntitiesByCardPK: vi.fn(),
   getRelatedCards: vi.fn(),
+  getUnlinkedMentions: vi.fn(),
   saveExistingCard: vi.fn(),
 }));
 
@@ -39,6 +40,7 @@ const {
   getCardEntities,
   getLinkedEntitiesByCardPK,
   getRelatedCards,
+  getUnlinkedMentions,
 } = await import('../../api/cards');
 const { fetchSummariesForCard } = await import('../../api/summarizer');
 
@@ -81,6 +83,7 @@ describe('ViewPage smoke', () => {
     vi.mocked(getCardTags).mockResolvedValue([]);
     vi.mocked(getCardTasks).mockResolvedValue([]);
     vi.mocked(getCardEntities).mockResolvedValue([]);
+    vi.mocked(getUnlinkedMentions).mockResolvedValue([]);
     vi.mocked(getLinkedEntitiesByCardPK).mockResolvedValue([]);
     vi.mocked(getRelatedCards).mockResolvedValue([]);
     vi.mocked(fetchSummariesForCard).mockResolvedValue([]);

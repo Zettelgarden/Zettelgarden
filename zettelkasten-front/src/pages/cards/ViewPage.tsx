@@ -40,6 +40,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
     summaries,
     latestSummary,
     relatedCards,
+    unlinkedMentions,
     showIdDiscovery,
     error,
     viewMode,
@@ -61,6 +62,8 @@ export function ViewPage({ cardId }: { cardId?: string }) {
     onCloseIdDiscovery,
     refreshCard,
     refreshRelatedCards,
+    refreshUnlinkedMentions,
+    addUnlinkedMentionLink,
   } = actions;
 
   // Handle saving card
@@ -90,6 +93,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
         summaries={summaries || []}
         latestSummary={latestSummary}
         relatedCards={relatedCards}
+        unlinkedMentions={unlinkedMentions}
         tags={tags}
         sourceArticle={viewingCard.source_article}
         onEditCard={onEditCard}
@@ -110,6 +114,10 @@ export function ViewPage({ cardId }: { cardId?: string }) {
         onMenuClick={toggleMobileSidebar}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
+        onUnlinkedMentionClick={(cardId) => {
+          navigate(`/app/card/${cardId}`);
+        }}
+        onUnlinkedMentionAddLink={addUnlinkedMentionLink}
       />
     );
   }
@@ -195,6 +203,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                     onRemoveTag={onRemoveTag}
                     sourceArticle={viewingCard.source_article}
                     relatedCards={relatedCards || undefined}
+                    unlinkedMentions={unlinkedMentions || undefined}
                     onRelatedCardClick={(cardId) => {
                       navigate(`/app/card/${cardId}`);
                     }}
@@ -203,6 +212,10 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                         onAddBacklink(rc.card);
                       }
                     }}
+                    onUnlinkedMentionClick={(cardId) => {
+                      navigate(`/app/card/${cardId}`);
+                    }}
+                    onUnlinkedMentionAddLink={addUnlinkedMentionLink}
                     onCreateChildCard={onCreateChildCard}
                     categorizedReferences={categorizedReferences}
                     onAddBacklink={onAddBacklink}
@@ -226,6 +239,7 @@ export function ViewPage({ cardId }: { cardId?: string }) {
                 // Trigger a refresh to update the card data
                 refreshCard();
                 refreshRelatedCards();
+                refreshUnlinkedMentions();
               });
               onCloseIdDiscovery();
             }

@@ -132,6 +132,14 @@ type RelatedCard struct {
 	Reasons []string    `json:"reasons"` // human-readable strings, e.g. "3 shared entities: Python, LLM"
 }
 
+// UnlinkedMention represents a card whose body mentions another card's
+// card_id without linking to it.
+type UnlinkedMention struct {
+	Card           PartialCard `json:"card"`
+	MentionCount   int         `json:"mention_count"`
+	ContextSnippet string      `json:"context_snippet"`
+}
+
 // SharedMatch represents cards that share entities or tags with a source card
 type SharedMatch struct {
 	Count int      // number of shared entities/tags

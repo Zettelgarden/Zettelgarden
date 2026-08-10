@@ -1,7 +1,13 @@
 // zettelkasten-front/src/components/cards/ViewMobileLayout.tsx
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, PartialCard, Entity, RelatedCard } from '../../models/Card';
+import {
+  Card,
+  PartialCard,
+  Entity,
+  RelatedCard,
+  UnlinkedMention,
+} from '../../models/Card';
 import { File } from '../../models/File';
 import {
   CategorizedReferences,
@@ -19,6 +25,7 @@ import { ViewNavigationSheet } from './ViewNavigationSheet';
 import { ViewCardContentSection } from './ViewCardContentSection';
 import { SearchTagDropdown } from '../tags/SearchTagDropdown';
 import { RelatedCards } from './RelatedCards';
+import { UnlinkedMentions } from './UnlinkedMentions';
 import { ChildrenCards } from './ChildrenCards';
 import { CardList } from './CardList';
 import { BacklinkInput } from './BacklinkInput';
@@ -44,6 +51,7 @@ interface ViewMobileLayoutProps {
   summaries: SummarizeJobResponse[];
   latestSummary: SummarizeJobResponse | null;
   relatedCards: RelatedCard[] | null;
+  unlinkedMentions: UnlinkedMention[] | null;
   tags: any[];
   sourceArticle?: RSSArticle;
   onEditCard: () => void;
@@ -53,6 +61,8 @@ interface ViewMobileLayoutProps {
   onTagClick: (tagName: string) => void;
   onRemoveTag: (tagName: string) => void;
   onAddBacklink: (selectedCard: PartialCard) => void;
+  onUnlinkedMentionClick: (cardId: number) => void;
+  onUnlinkedMentionAddLink: (mention: UnlinkedMention) => void;
   handleOpenEntity: (entity: Entity) => void;
   onResummarize: () => void;
   onRecategorize: () => void;
@@ -76,6 +86,7 @@ export function ViewMobileLayout({
   summaries,
   latestSummary,
   relatedCards,
+  unlinkedMentions,
   tags,
   sourceArticle,
   onEditCard,
@@ -85,6 +96,8 @@ export function ViewMobileLayout({
   onTagClick,
   onRemoveTag,
   onAddBacklink,
+  onUnlinkedMentionClick,
+  onUnlinkedMentionAddLink,
   handleOpenEntity,
   onResummarize,
   onRecategorize,
@@ -139,6 +152,7 @@ export function ViewMobileLayout({
   const hasNavigation = parentCard || prevSibling || nextSibling;
   const hasEntities = linkedEntities && linkedEntities.length > 0;
   const hasRelatedCards = relatedCards && relatedCards.length > 0;
+  const hasUnlinkedMentions = unlinkedMentions && unlinkedMentions.length > 0;
 
   // Append a file reference to the card body and save (mirrors the desktop rail).
   async function handleDisplayFileOnCardClick(file: File) {
@@ -474,6 +488,17 @@ export function ViewMobileLayout({
                 relatedCards={relatedCards!}
                 onCardClick={handleNavigate}
                 onAddReference={(rc) => onAddBacklink(rc.card)}
+              />
+            </ViewMobileAccordion>
+          )}
+
+          {/* Unlinked Mentions */}
+          {hasUnlinkedMentions && (
+            <ViewMobileAccordion title="Unlinked mentions">
+              <UnlinkedMentions
+                mentions={unlinkedMentions!}
+                onCardClick={onUnlinkedMentionClick}
+                onAddLink={onUnlinkedMentionAddLink}
               />
             </ViewMobileAccordion>
           )}
