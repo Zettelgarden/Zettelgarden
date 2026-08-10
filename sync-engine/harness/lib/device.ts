@@ -5,16 +5,17 @@
  * Phase 1b "two local DBs + live backend" shape.
  */
 
-import { HttpTransport } from '../../src/http';
-import { SyncEngine } from '../../src/engine';
-import { SqliteStorageAdapter } from '../../src/sqlite';
-import type { SyncTransport } from '../../src/types';
+import { HttpTransport } from "../../src/http";
+import { SyncEngine } from "../../src/engine";
+import { SqliteStorageAdapter } from "../../src/sqlite";
+import type { StorageAdapter } from "../../src/storage";
+import type { SyncTransport } from "../../src/types";
 
 export interface Device {
   /** e.g. 'dev-a' */
   id: string;
   engine: SyncEngine;
-  storage: SqliteStorageAdapter;
+  storage: StorageAdapter;
   /** Transport bound to the harness account; handy for raw API assertions. */
   transport: SyncTransport;
   close(): void;
@@ -28,6 +29,24 @@ export async function makeDevice(
 ): Promise<Device> {
   const storage = new SqliteStorageAdapter(dbPath);
   await storage.whenReady();
+  return makeDeviceWithStorage(baseUrl, auth, id, storage, () =>
+    storage.close(),
+  );
+}
+
+/**
+ * Device over an arbitrary StorageAdapter — used by the mobile-bridge
+ * scenario (11) where one "device" is a MobileStorageAdapter driving a real
+ * SQLite executor through the loopback bridge, exactly the RN shell shape.
+ */
+export async function makeDeviceWithStorage(
+  baseUrl: string,
+  auth: string,
+  id: string,
+  storage: StorageAdapter,
+  close: () => void,
+): Promise<Device> {
+  await storage.whenReady();
   const transport = new HttpTransport({ baseUrl, token: () => auth });
   const engine = new SyncEngine({ storage, transport, deviceId: id });
   return {
@@ -35,6 +54,6 @@ export async function makeDevice(
     engine,
     storage,
     transport,
-    close: () => storage.close(),
+    close,
   };
 }

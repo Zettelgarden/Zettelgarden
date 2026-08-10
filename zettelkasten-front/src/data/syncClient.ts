@@ -18,6 +18,7 @@ import {
   isMobileApp,
   isNativeShell,
 } from './tauriStorageAdapter';
+import { MobileStorageAdapter } from './mobileStorageAdapter';
 
 export interface SyncClient {
   engine: SyncEngine;
@@ -84,13 +85,13 @@ export async function resolveBaseUrl(): Promise<string> {
 
 /**
  * Selects the storage adapter for the active shell. Desktop uses the Tauri
- * IPC adapter; the mobile adapter (over the RN postMessage bridge to
- * op-sqlite) lands in c6l.2 — until then the mobile webview stays a thin
- * client (getSyncClient returns null, web behavior).
+ * IPC adapter; the mobile shell uses MobileStorageAdapter over the RN
+ * postMessage bridge to op-sqlite (c6l.2).
  */
-function buildStorageAdapter(): TauriStorageAdapter | null {
+function buildStorageAdapter():
+  TauriStorageAdapter | MobileStorageAdapter | null {
   if (isDesktopApp()) return new TauriStorageAdapter();
-  // TODO(c6l.2): return new MobileStorageAdapter() when zgMobile is present.
+  if (isMobileApp()) return new MobileStorageAdapter();
   return null;
 }
 
@@ -99,7 +100,7 @@ let initPromise: Promise<SyncClient | null> | null = null;
 
 async function buildClient(): Promise<SyncClient | null> {
   const storage = buildStorageAdapter();
-  if (!storage) return null; // web thin client (or mobile until c6l.2 lands)
+  if (!storage) return null; // web thin client
   await storage.whenReady();
 
   const baseUrl = await resolveBaseUrl();

@@ -7,6 +7,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { handleBridgeMessage, responseScript } from '../src/bridge';
 
+jest.mock('@op-engineering/op-sqlite');
+const { open, __instances, __pushResult } = jest.requireMock(
+  '@op-engineering/op-sqlite',
+) as {
+  open: jest.Mock;
+  __instances: Array<{
+    execute: jest.Mock;
+    close: jest.Mock;
+    delete: jest.Mock;
+  }>;
+  __pushResult: (result: unknown) => void;
+};
+
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
@@ -63,4 +76,72 @@ test('responseScript calls the shim onResponse with the payload', () => {
   expect(script).toContain('__zgMobileBridge.onResponse');
   expect(script).toContain('"id":7');
   expect(script.trim().endsWith('true;')).toBe(true);
+});
+
+describe('sqlite bridge commands (c6l.2)', () => {
+  /** The op-sqlite DB instance the executor opened (mock). */
+  const db = () => __instances[__instances.length - 1];
+
+  test('sql_exec runs the statement with params and returns rowsAffected', async () => {
+    __pushResult({ rowsAffected: 2, rows: [] });
+    const resp = await handleBridgeMessage(
+      JSON.stringify({
+        id: 10,
+        cmd: 'sql_exec',
+        args: { sql: 'INSERT INTO t (a) VALUES (?)', params: ['x'] },
+      }),
+    );
+    expect(resp).toEqual({ id: 10, ok: true, result: { rowsAffected: 2 } });
+    expect(db().execute).toHaveBeenCalledWith('INSERT INTO t (a) VALUES (?)', [
+      'x',
+    ]);
+  });
+
+  test('sql_query returns the row objects from the executor', async () => {
+    __pushResult({ rowsAffected: 0, rows: [{ row_uuid: 'r1', version: 1 }] });
+    const resp = await handleBridgeMessage(
+      JSON.stringify({
+        id: 11,
+        cmd: 'sql_query',
+        args: { sql: 'SELECT row_uuid, version FROM mirror_rows', params: [] },
+      }),
+    );
+    expect(resp.ok).toBe(true);
+    expect(resp.result).toEqual([{ row_uuid: 'r1', version: 1 }]);
+  });
+
+  test('sql_begin/commit/rollback run on the executor', async () => {
+    for (const cmd of ['sql_begin', 'sql_commit', 'sql_rollback']) {
+      const resp = await handleBridgeMessage(JSON.stringify({ id: 12, cmd }));
+      expect(resp).toEqual({ id: 12, ok: true, result: null });
+    }
+    const calls = db().execute.mock.calls.map(c => c[0]);
+    expect(calls.slice(-3)).toEqual(['BEGIN IMMEDIATE', 'COMMIT', 'ROLLBACK']);
+  });
+
+  test('sql_exec/sql_query reject a missing sql argument', async () => {
+    const execResp = await handleBridgeMessage(
+      JSON.stringify({ id: 13, cmd: 'sql_exec', args: { params: [] } }),
+    );
+    expect(execResp.ok).toBe(false);
+    expect(execResp.error).toContain('sql');
+    const queryResp = await handleBridgeMessage(
+      JSON.stringify({ id: 14, cmd: 'sql_query' }),
+    );
+    expect(queryResp.ok).toBe(false);
+  });
+
+  test('db_reset closes and deletes the mirror database', async () => {
+    // Force the executor to open (first sql command), then reset.
+    await handleBridgeMessage(JSON.stringify({ id: 15, cmd: 'sql_begin' }));
+    const before = __instances.length;
+    const resp = await handleBridgeMessage(
+      JSON.stringify({ id: 16, cmd: 'db_reset' }),
+    );
+    expect(resp).toEqual({ id: 16, ok: true, result: null });
+    const last = db();
+    expect(last.close).toHaveBeenCalled();
+    expect(last.delete).toHaveBeenCalled();
+    expect(open).toHaveBeenCalledTimes(before); // no re-open until next command
+  });
 });

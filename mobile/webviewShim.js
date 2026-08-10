@@ -23,6 +23,7 @@
  * @param {{ postMessage: (msg: string) => void, platform: string }} deps
  * @returns {{ bridge: { onResponse: (p: {id:number, ok:boolean, result?:unknown, error?:string}) => void },
  *             api: { ready: Promise<unknown>, platform: string,
+ *                    invoke: (cmd: string, args?: unknown) => Promise<unknown>,
  *                    loadSettings: () => Promise<unknown>,
  *                    saveSettings: (s: unknown) => Promise<unknown> } }}
  */
@@ -61,6 +62,12 @@ function createShim({ postMessage, platform }) {
           return undefined;
         }),
       platform: platform,
+      // Generic bridge call — the sync engine's MobileStorageAdapter (c6l.2)
+      // drives sql_* commands through this; settings/token use the typed
+      // methods below.
+      invoke: function (cmd, args) {
+        return invoke(cmd, args);
+      },
       loadSettings: function () {
         return invoke('load_settings');
       },

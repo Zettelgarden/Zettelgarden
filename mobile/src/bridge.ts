@@ -8,6 +8,14 @@
 
 import { Platform } from 'react-native';
 import { loadSettings, saveSettings } from './settingsStore';
+import {
+  sqlBegin,
+  sqlCommit,
+  sqlExec,
+  sqlQuery,
+  sqlReset,
+  sqlRollback,
+} from './sqlite';
 
 export interface BridgeRequest {
   id: number;
@@ -48,6 +56,53 @@ export async function handleBridgeMessage(
         return { id: req.id, ok: true, result: await loadSettings() };
       case 'save_settings': {
         await saveSettings((req.args ?? {}) as Record<string, unknown>);
+        return { id: req.id, ok: true, result: null };
+      }
+      // SQLite bridge (c6l.2): the webview sync engine's MobileStorageAdapter
+      // drives these. The executor is op-sqlite on the RN JS thread — the
+      // webview never touches SQLite directly.
+      case 'sql_begin': {
+        await sqlBegin();
+        return { id: req.id, ok: true, result: null };
+      }
+      case 'sql_commit': {
+        await sqlCommit();
+        return { id: req.id, ok: true, result: null };
+      }
+      case 'sql_rollback': {
+        await sqlRollback();
+        return { id: req.id, ok: true, result: null };
+      }
+      case 'sql_exec': {
+        const { sql, params } = (req.args ?? {}) as {
+          sql: string;
+          params?: unknown[];
+        };
+        if (typeof sql !== 'string') {
+          return { id: req.id, ok: false, error: 'sql_exec requires sql' };
+        }
+        return {
+          id: req.id,
+          ok: true,
+          result: await sqlExec(sql, params ?? []),
+        };
+      }
+      case 'sql_query': {
+        const { sql, params } = (req.args ?? {}) as {
+          sql: string;
+          params?: unknown[];
+        };
+        if (typeof sql !== 'string') {
+          return { id: req.id, ok: false, error: 'sql_query requires sql' };
+        }
+        return {
+          id: req.id,
+          ok: true,
+          result: await sqlQuery(sql, params ?? []),
+        };
+      }
+      case 'db_reset': {
+        await sqlReset();
         return { id: req.id, ok: true, result: null };
       }
       default:

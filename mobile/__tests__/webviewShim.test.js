@@ -70,3 +70,12 @@ test('shimSource installs the global zgMobile with the platform', () => {
   expect(source).toContain('"android"');
   expect(source).toContain('window.__zgMobileBridge = shim.bridge');
 });
+
+test('generic invoke posts an arbitrary command (sqlite bridge surface)', () => {
+  const { shim, posted } = makeShim();
+  const p = shim.api.invoke('sql_query', { sql: 'SELECT 1', params: [] });
+  const req = postedFor(posted, 'sql_query');
+  expect(req.args).toEqual({ sql: 'SELECT 1', params: [] });
+  shim.bridge.onResponse({ id: req.id, ok: true, result: [{ 1: 1 }] });
+  return expect(p).resolves.toEqual([{ 1: 1 }]);
+});
