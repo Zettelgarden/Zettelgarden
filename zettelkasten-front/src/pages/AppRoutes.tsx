@@ -15,6 +15,7 @@ import { Summarizer } from './Summarizer';
 import { FactPage } from './FactPage';
 import { HelpPage } from './HelpPage';
 import { StatsPage } from './StatsPage';
+import { GraphPage } from './GraphPage';
 import { SchemaPage } from './SchemaPage';
 import { SchemaCreatePage } from './SchemaCreatePage';
 import { SchemaEditPage } from './SchemaEditPage';
@@ -94,6 +95,7 @@ export function AppRoutes({
         element={proOnly(<Summarizer />, 'Summarizer')}
       />
       <Route path="facts" element={proOnly(<FactPage />, 'Facts')} />
+      <Route path="graph" element={<GraphPage />} />
       {includeStats && (
         <Route path="stats" element={proOnly(<StatsPage />, 'Stats')} />
       )}

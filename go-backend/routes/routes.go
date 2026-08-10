@@ -44,6 +44,9 @@ func RegisterAllRoutes(r *mux.Router, h *handlers.Handler, scheduler handlers.Sc
 	// Card management routes
 	RegisterCardRoutes(r, h)
 
+	// Knowledge graph routes
+	RegisterGraphRoutes(r, h)
+
 	// Template routes
 	RegisterTemplateRoutes(r, h)
 

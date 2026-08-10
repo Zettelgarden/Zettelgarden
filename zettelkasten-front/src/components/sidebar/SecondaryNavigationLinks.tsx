@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { SchemaIcon } from '../../assets/icons/SchemaIcon';
 import { FactsIcon } from '../../assets/icons/FactsIcon';
+import { GraphIcon } from '../../assets/icons/GraphIcon';
 
 interface SecondaryNavigationLinksProps {
   hasSubscription: boolean;
@@ -124,6 +125,12 @@ export function SecondaryNavigationLinks({
           isCollapsed={isCollapsed}
           isPro={true}
           hasSubscription={hasSubscription}
+        />
+        <CollapsibleLink
+          to="/app/graph"
+          icon={<GraphIcon />}
+          label="Graph"
+          isCollapsed={isCollapsed}
         />
         <CollapsibleLink
           to="/app/facts"
