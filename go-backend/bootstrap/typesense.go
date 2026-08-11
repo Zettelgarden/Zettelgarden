@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"go-backend/pkg/config"
 
@@ -140,4 +141,57 @@ func InitTypesense(searchConfig config.SearchConfig) (*typesense.Client, error) 
 	}
 	_, err = client.Collections().Create(context.Background(), schema)
 	return client, err
+}
+
+// RetryInitTypesense keeps attempting to initialize Typesense in a background
+// goroutine until it succeeds, then calls onReady with the ready client.
+// Attempts start at initialBackoff and double up to maxBackoff between tries;
+// the loop stops early if ctx is cancelled. Panics (e.g. inside onReady) are
+// recovered and logged.
+//
+// This fixes Zettelgarden-5b0: previously the Typesense client was only ever
+// set from the boot-time InitTypesense call in main.go, so if Typesense was
+// unavailable when the backend started, searches fell back to SQL full-text
+// forever and a late-arriving Typesense was never picked up without a restart.
+func RetryInitTypesense(ctx context.Context, searchConfig config.SearchConfig, initialBackoff, maxBackoff time.Duration, onReady func(*typesense.Client)) {
+	if initialBackoff <= 0 {
+		initialBackoff = 5 * time.Second
+	}
+	if maxBackoff <= 0 || maxBackoff < initialBackoff {
+		maxBackoff = initialBackoff
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("panic in Typesense retry loop: %v", r)
+			}
+		}()
+
+		backoff := initialBackoff
+		for {
+			select {
+			case <-ctx.Done():
+				log.Printf("Typesense retry loop stopped: %v", ctx.Err())
+				return
+			case <-time.After(backoff):
+			}
+
+			client, err := InitTypesense(searchConfig)
+			if err != nil {
+				log.Printf("Typesense still unavailable, retrying in %s: %v", backoff, err)
+				backoff *= 2
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+				continue
+			}
+
+			log.Printf("Typesense search client initialized (after retry)")
+			// client is fully constructed and immutable from here on, so
+			// publishing it to concurrent nil-check readers is safe.
+			onReady(client)
+			return
+		}
+	}()
 }

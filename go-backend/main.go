@@ -27,6 +27,7 @@ import (
 	"github.com/rs/cors"
 	openai "github.com/sashabaranov/go-openai"
 	"github.com/stripe/stripe-go/v82"
+	"github.com/typesense/typesense-go/typesense"
 )
 
 var s *server.Server
@@ -52,6 +53,19 @@ func safeGoroutine(fn func()) {
 		}()
 		fn()
 	}()
+}
+
+// initTypesenseCollections creates and backfills the search and files
+// collections. The caller must have already installed a non-nil client on
+// s.TypesenseClient. Used both on a happy boot and when a retry reconnects
+// a Typesense that was down at boot (Zettelgarden-5b0).
+func initTypesenseCollections(h *handlers.Handler) {
+	log.Printf("Initializing search collection...")
+	h.InitSearchCollection()
+	log.Printf("Initializing files collection...")
+	if err := h.InitFilesCollection(); err != nil {
+		log.Printf("WARNING: failed to initialize Typesense files collection: %v", err)
+	}
 }
 
 func configureLogging(cfg config.Config) (*os.File, func(), error) {
@@ -199,16 +213,20 @@ func run() error {
 		s.TypesenseClient = typesenseClient
 		log.Printf("Typesense search client initialized successfully")
 		go safeGoroutine(func() {
-			log.Printf("Initializing search collection...")
-			h.InitSearchCollection()
-			log.Printf("Initializing files collection...")
-			if err := h.InitFilesCollection(); err != nil {
-				log.Printf("WARNING: failed to initialize Typesense files collection: %v", err)
-			}
+			initTypesenseCollections(h)
 		})
 	} else {
 		log.Printf("WARNING: Typesense initialization failed - search functionality is disabled. Error: %v", err)
 		log.Printf("INFO: Searches will use slower full-text search only. Check Typesense configuration and network connectivity.")
+		// Zettelgarden-5b0: if Typesense was down at boot, keep retrying in the
+		// background (exponential backoff) so it is picked up without a restart.
+		// Once connected, the client is installed and the search/files
+		// collections are created and backfilled, exactly as on a happy boot.
+		log.Printf("INFO: Will keep retrying Typesense in the background (backoff up to 5m)")
+		bootstrap.RetryInitTypesense(context.Background(), cfg.Services.Search, 5*time.Second, 5*time.Minute, func(client *typesense.Client) {
+			s.TypesenseClient = client
+			initTypesenseCollections(h)
+		})
 	}
 
 	s.JwtSecretKey = []byte(cfg.Server.JwtSecretKey)
