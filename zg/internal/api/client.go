@@ -67,6 +67,21 @@ func (c *Client) PostNoAuth(path string, body []byte) (*http.Response, error) {
 	return c.httpClient.Do(req)
 }
 
+// PostWithContentType performs a POST with an explicit Content-Type (e.g.
+// multipart/form-data for file uploads) while still attaching the bearer
+// token.
+func (c *Client) PostWithContentType(path, contentType string, body []byte) (*http.Response, error) {
+	url := c.buildURL(path)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.token)
+	req.Header.Set("Content-Type", contentType)
+	return c.httpClient.Do(req)
+}
+
 func (c *Client) Put(path string, body []byte) (*http.Response, error) {
 	url := c.buildURL(path)
 	req, err := http.NewRequest("PUT", url, bytes.NewReader(body))

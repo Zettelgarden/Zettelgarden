@@ -144,6 +144,13 @@ var cardSuggestTitleCmd = &cobra.Command{
 	RunE:  runCardSuggestTitle,
 }
 
+var cardFilesCmd = &cobra.Command{
+	Use:   "files <id>",
+	Short: "List files attached to a card",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runCardFiles,
+}
+
 // Structured data commands
 var cardGetStructuredDataCmd = &cobra.Command{
 	Use:   "get-structured-data <id>",
@@ -239,6 +246,7 @@ func init() {
 	cardCmd.AddCommand(cardChildrenCmd)
 	cardCmd.AddCommand(cardUnsortedCmd)
 	cardCmd.AddCommand(cardSuggestTitleCmd)
+	cardCmd.AddCommand(cardFilesCmd)
 	cardSummariesCmd.Flags().BoolVarP(&summariesLatest, "latest", "l", false, "Show only the most recent completed summary")
 	cardUnsortedCmd.Flags().IntVarP(&listLimit, "limit", "l", 20, "Limit results")
 	cardUnsortedCmd.Flags().IntVarP(&listOffset, "offset", "o", 0, "Offset results")
@@ -868,6 +876,42 @@ func runCardSuggestTitle(cmd *cobra.Command, args []string) error {
 	}
 
 	return output.WriteSuccess(os.Stdout, result)
+}
+
+func runCardFiles(cmd *cobra.Command, args []string) error {
+	cardID, err := strconv.Atoi(args[0])
+	if err != nil {
+		return output.WriteError(os.Stdout, "Invalid card ID", "ID must be a number")
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		return output.WriteError(os.Stdout, "Config error", err.Error())
+	}
+
+	client := api.NewClient(cfg.APIURL, cfg.Token, cfg.TimeoutSeconds)
+	resp, err := client.Get(fmt.Sprintf("/api/cards/%d/files", cardID))
+	if err != nil {
+		return output.WriteError(os.Stdout, "API request failed", err.Error())
+	}
+
+	body, err := api.GetBodyBytes(resp)
+	if err != nil {
+		return output.WriteError(os.Stdout, "Reading response failed", err.Error())
+	}
+	if resp.StatusCode != 200 {
+		return output.WriteError(os.Stdout, fmt.Sprintf("API error: %d", resp.StatusCode), string(body))
+	}
+
+	var files []File
+	if err := json.Unmarshal(body, &files); err != nil {
+		return output.WriteError(os.Stdout, "Parse error", err.Error())
+	}
+	if files == nil {
+		files = []File{}
+	}
+
+	return output.WriteSuccess(os.Stdout, files)
 }
 
 // SearchResult represents a search result from the API

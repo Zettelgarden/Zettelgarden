@@ -183,6 +183,22 @@ Use `zg schema list` to find a schema id for
 zg stats                     # Daily card/task activity for the last 30 days (--days N)
 ```
 
+### Files
+
+```bash
+zg file list [--search S]    # List files (--limit/--offset)
+zg file get <id>             # Get file metadata
+zg file upload <path> [--card-id N]   # Upload a file
+zg file download <id> [-o out]        # Download a file to disk
+zg file edit <id> --name X [--description D] [--card-pk N]  # Edit metadata
+zg file delete <id>          # Delete a file
+zg file tags                 # List your file tags (with counts)
+zg file tag <id> <tag...>    # Tag a file
+zg file untag <id> <tag>     # Remove a tag from a file
+zg file import-epub <id> [--card-id X] # Import an epub as cards
+zg card files <id>           # List files attached to a card
+```
+
 ### Global Flags
 
 - `--pretty` - Pretty-print JSON output
