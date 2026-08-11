@@ -987,6 +987,46 @@ func GetCardsByEntity(db models.Database, userID int, entityID int) ([]models.Pa
 	return cards, nil
 }
 
+// GetEntityCardsWithCounts returns all cards linked to an entity via the
+// junction, each annotated with the card's total entity count. Search-
+// independent (unlike the semantic path) so it works without Typesense.
+func GetEntityCardsWithCounts(db models.Database, userID int, entityID int) ([]models.EntityCard, error) {
+	rows, err := db.Query(`
+		SELECT c.id, c.card_id, c.user_id, c.title, c.parent_id, c.created_at, c.updated_at,
+		       (SELECT COUNT(DISTINCT ecj2.entity_id)
+		        FROM entity_card_junction ecj2
+		        WHERE ecj2.card_pk = c.id AND ecj2.user_id = $2)
+		FROM cards c
+		JOIN entity_card_junction ecj ON c.id = ecj.card_pk
+		WHERE ecj.entity_id = $1 AND ecj.user_id = $2 AND c.is_deleted = FALSE
+		ORDER BY c.updated_at DESC
+	`, entityID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entity cards with counts: %w", err)
+	}
+	defer rows.Close()
+
+	var entityCards []models.EntityCard
+	for rows.Next() {
+		var ec models.EntityCard
+		var parentID sql.NullInt64
+		if err := rows.Scan(&ec.Card.ID, &ec.Card.CardID, &ec.Card.UserID, &ec.Card.Title, &parentID, &ec.Card.CreatedAt, &ec.Card.UpdatedAt, &ec.EntityCount); err != nil {
+			return nil, fmt.Errorf("failed to scan entity card: %w", err)
+		}
+		if parentID.Valid {
+			ec.Card.ParentID = new(int)
+			*ec.Card.ParentID = int(parentID.Int64)
+		}
+		ec.Card.Tags = []models.Tag{}
+		entityCards = append(entityCards, ec)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating entity cards: %w", err)
+	}
+
+	return entityCards, nil
+}
+
 // GetCardWithDescendants fetches a card and recursively loads all its descendants with depth information
 func GetCardWithDescendants(db models.Database, userID int, cardID int) (models.CardWithDescendants, error) {
 	// Fetch the root card

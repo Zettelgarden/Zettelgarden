@@ -44,6 +44,11 @@ export interface UnlinkedMention {
   context_snippet: string;
 }
 
+export interface EntityCard {
+  card: PartialCard;
+  entity_count: number;
+}
+
 export interface Card {
   id: number;
   card_id: string;

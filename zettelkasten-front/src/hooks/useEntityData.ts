@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Entity } from '../models/Card';
-import { PartialCard, SearchResult, defaultPartialCard } from '../models/Card';
+import { Entity, EntityCard } from '../models/Card';
 import { FactWithCard } from '../models/Fact';
-import { semanticSearchCards, escapeEntityNameForSearch } from '../api/cards';
-import { getEntityFacts, getSimilarEntities } from '../api/entities';
+import {
+  getEntityCards,
+  getEntityFacts,
+  getSimilarEntities,
+} from '../api/entities';
 
 export interface EntityData {
-  associatedCards: PartialCard[];
+  associatedCards: EntityCard[];
   isLoading: boolean;
   error: string | null;
   facts: FactWithCard[];
@@ -25,7 +27,7 @@ export function useEntityData(
   showDialog: boolean,
   entity: Entity | null,
 ): EntityData {
-  const [associatedCards, setAssociatedCards] = useState<PartialCard[]>([]);
+  const [associatedCards, setAssociatedCards] = useState<EntityCard[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facts, setFacts] = useState<FactWithCard[]>([]);
@@ -37,47 +39,14 @@ export function useEntityData(
 
   useEffect(() => {
     if (showDialog && entity) {
-      // Fetch associated cards
+      // Fetch associated cards via the junction (search-independent).
       setIsLoading(true);
       setError(null);
       setAssociatedCards([]);
 
-      semanticSearchCards(
-        `@[${escapeEntityNameForSearch(entity.name)}]`,
-        false,
-        false,
-        false,
-        true,
-      )
-        .then((results: SearchResult[]) => {
-          if (results === null) {
-            setAssociatedCards([]);
-            return;
-          }
-          const cards: PartialCard[] = results.map((result) => ({
-            id: Number(result.metadata?.id) || 0,
-            card_id: result.metadata?.card_id || '',
-            title: result.title,
-            body: result.preview || '',
-            link: '',
-            is_deleted: false,
-            created_at: new Date(result.created_at),
-            updated_at: new Date(result.updated_at),
-            parent_id: result.metadata?.parent_id || 0,
-            user_id: 0,
-            parent: defaultPartialCard,
-            files: [],
-            children_count: 0,
-            references_count: 0,
-            tags: result.tags || [],
-            tasks_count: 0,
-            is_public: false,
-            is_template: false,
-            is_pinned: false,
-            rating: 0,
-            card_type: result.metadata?.card_type || 'note',
-          }));
-          setAssociatedCards(cards);
+      getEntityCards(entity.id)
+        .then((cards) => {
+          setAssociatedCards(cards ?? []);
         })
         .catch((err) => {
           console.error('Error fetching cards for entity:', err);

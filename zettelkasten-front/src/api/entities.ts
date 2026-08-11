@@ -1,4 +1,4 @@
-import { Entity, EntityWithScore } from '../models/Card';
+import { Entity, EntityWithScore, EntityCard } from '../models/Card';
 import { FactWithCard } from '../models/Fact';
 import { apiClient, getData } from './client';
 
@@ -104,6 +104,15 @@ export function fetchEntityByName(name: string): Promise<Entity> {
   return getData(
     apiClient.get<Entity>(`/entities/name/${encodeURIComponent(name)}`),
   ).then(parseEntityDates);
+}
+
+// Fetch all cards linked to an entity via the junction, each with the card's
+// total entity count. Search-independent (works without Typesense).
+export async function getEntityCards(entityId: number): Promise<EntityCard[]> {
+  const { data } = await apiClient.get<EntityCard[]>(
+    `/entities/id/${entityId}/cards`,
+  );
+  return data;
 }
 
 export function getSimilarEntities(

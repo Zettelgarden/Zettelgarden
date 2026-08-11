@@ -140,6 +140,13 @@ type UnlinkedMention struct {
 	ContextSnippet string      `json:"context_snippet"`
 }
 
+// EntityCard links a card to an entity via the junction, with the card's
+// total entity count (how many entities the card is linked to overall).
+type EntityCard struct {
+	Card        PartialCard `json:"card"`
+	EntityCount int         `json:"entity_count"`
+}
+
 // SharedMatch represents cards that share entities or tags with a source card
 type SharedMatch struct {
 	Count int      // number of shared entities/tags

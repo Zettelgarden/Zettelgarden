@@ -8,16 +8,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useEntityData } from './useEntityData';
-import { semanticSearchCards, escapeEntityNameForSearch } from '../api/cards';
-import { getEntityFacts, getSimilarEntities } from '../api/entities';
+import {
+  getEntityCards,
+  getEntityFacts,
+  getSimilarEntities,
+} from '../api/entities';
 import { Entity } from '../models/Card';
 
-vi.mock('../api/cards', () => ({
-  semanticSearchCards: vi.fn(),
-  escapeEntityNameForSearch: vi.fn((name: string) => name),
-}));
-
 vi.mock('../api/entities', () => ({
+  getEntityCards: vi.fn(),
   getEntityFacts: vi.fn(),
   getSimilarEntities: vi.fn(),
 }));
@@ -48,7 +47,7 @@ describe('useEntityData', () => {
 
     // Give any stray effects a chance to run, then confirm no API calls
     await new Promise((r) => setTimeout(r, 10));
-    expect(semanticSearchCards).not.toHaveBeenCalled();
+    expect(getEntityCards).not.toHaveBeenCalled();
     expect(getEntityFacts).not.toHaveBeenCalled();
     expect(getSimilarEntities).not.toHaveBeenCalled();
   });
@@ -58,21 +57,23 @@ describe('useEntityData', () => {
 
     expect(result.current.isLoading).toBe(false);
     await new Promise((r) => setTimeout(r, 10));
-    expect(semanticSearchCards).not.toHaveBeenCalled();
+    expect(getEntityCards).not.toHaveBeenCalled();
   });
 
   it('fetches associated cards, facts and similar entities for an entity', async () => {
-    vi.mocked(semanticSearchCards).mockResolvedValue([
+    vi.mocked(getEntityCards).mockResolvedValue([
       {
-        id: '9',
-        type: 'card',
-        title: 'My note',
-        preview: 'preview text',
-        score: 1,
-        created_at: new Date('2024-01-01'),
-        updated_at: new Date('2024-01-01'),
-        tags: [{ id: 1, name: 'tag', color: 'black', user_id: 1 }],
-        metadata: { id: 9, card_id: 'my-note', parent_id: 0 },
+        card: {
+          id: 9,
+          card_id: 'my-note',
+          user_id: 1,
+          title: 'My note',
+          parent_id: 0,
+          created_at: new Date('2024-01-01'),
+          updated_at: new Date('2024-01-01'),
+          tags: [],
+        },
+        entity_count: 3,
       },
     ]);
     vi.mocked(getEntityFacts).mockResolvedValue([
@@ -88,26 +89,21 @@ describe('useEntityData', () => {
     await waitFor(() => expect(result.current.factsLoading).toBe(false));
     await waitFor(() => expect(result.current.loadingSimilar).toBe(false));
 
-    expect(semanticSearchCards).toHaveBeenCalledWith(
-      `@[${escapeEntityNameForSearch(mockEntity.name)}]`,
-      false,
-      false,
-      false,
-      true,
-    );
+    expect(getEntityCards).toHaveBeenCalledWith(42);
     expect(getEntityFacts).toHaveBeenCalledWith(42);
     expect(getSimilarEntities).toHaveBeenCalledWith(42);
 
     expect(result.current.associatedCards).toHaveLength(1);
-    expect(result.current.associatedCards[0].card_id).toBe('my-note');
-    expect(result.current.associatedCards[0].title).toBe('My note');
+    expect(result.current.associatedCards[0].card.card_id).toBe('my-note');
+    expect(result.current.associatedCards[0].card.title).toBe('My note');
+    expect(result.current.associatedCards[0].entity_count).toBe(3);
     expect(result.current.facts).toHaveLength(1);
     expect(result.current.similarEntities).toHaveLength(1);
     expect(result.current.similarEntities[0].score).toBe(0.8);
   });
 
-  it('maps a null search response to no associated cards', async () => {
-    vi.mocked(semanticSearchCards).mockResolvedValue(null as any);
+  it('maps an empty junction response to no associated cards', async () => {
+    vi.mocked(getEntityCards).mockResolvedValue([]);
     vi.mocked(getEntityFacts).mockResolvedValue([]);
     vi.mocked(getSimilarEntities).mockResolvedValue([]);
 
@@ -119,7 +115,7 @@ describe('useEntityData', () => {
 
   it('sets per-section errors when fetches fail', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.mocked(semanticSearchCards).mockRejectedValue(new Error('search down'));
+    vi.mocked(getEntityCards).mockRejectedValue(new Error('junction down'));
     vi.mocked(getEntityFacts).mockRejectedValue(new Error('facts down'));
     vi.mocked(getSimilarEntities).mockRejectedValue(new Error('similar down'));
 

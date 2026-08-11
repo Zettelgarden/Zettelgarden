@@ -748,6 +748,37 @@ func (s *Handler) GetEntityByID(userID int, entityID int) (models.Entity, error)
 	return entity, nil
 }
 
+// GetEntityCardsRoute returns all cards linked to an entity via the junction,
+// each with the card's total entity count.
+func (s *Handler) GetEntityCardsRoute(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("current_user").(int)
+	entityID, err := strconv.Atoi(mux.Vars(r)["id"])
+	if err != nil {
+		http.Error(w, "Invalid entity ID", http.StatusBadRequest)
+		return
+	}
+
+	if _, err := s.GetEntityByID(userID, entityID); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Entity not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("error querying entity by id: %v", err)
+		http.Error(w, "Failed to query entity", http.StatusInternalServerError)
+		return
+	}
+
+	entityCards, err := services.GetEntityCardsWithCounts(s.GetDB(), userID, entityID)
+	if err != nil {
+		log.Printf("failed to get entity cards: %v", err)
+		http.Error(w, "Failed to get entity cards", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entityCards)
+}
+
 func (s *Handler) GetEntityByIDRoute(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("current_user").(int)
 	entityID, err := strconv.Atoi(mux.Vars(r)["id"])

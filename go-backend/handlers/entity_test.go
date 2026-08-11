@@ -829,3 +829,62 @@ func TestMergeEntitiesPreservesCardPKFromSecondEntity(t *testing.T) {
 		t.Errorf("Entity 103 was not deleted")
 	}
 }
+
+// TestGetEntityCardsRoute verifies the junction-based entity hub endpoint:
+// all cards linked through the entity, each with the card's total entity
+// count, ownership respected.
+func TestGetEntityCardsRoute(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	fetch := func(entityID int, userID int) (int, []models.EntityCard) {
+		token, _ := tests.GenerateTestJWT(userID)
+		req, err := http.NewRequest("GET", "/api/entities/id/"+strconv.Itoa(entityID)+"/cards", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.SetPathValue("id", strconv.Itoa(entityID))
+
+		rr := httptest.NewRecorder()
+		router := mux.NewRouter()
+		router.HandleFunc("/api/entities/id/{id}/cards", s.JwtMiddleware(s.GetEntityCardsRoute))
+		router.ServeHTTP(rr, req)
+
+		var cards []models.EntityCard
+		if rr.Code == http.StatusOK {
+			tests.ParseJsonResponse(t, rr.Body.Bytes(), &cards)
+		}
+		return rr.Code, cards
+	}
+
+	// Entity 1 ("Test Entity 1") links cards 1 and 2. Card 1 has entities
+	// 1,2,4 (count 3); card 2 has entities 1,2 (count 2).
+	status, cards := fetch(1, 1)
+	if status != http.StatusOK {
+		t.Fatalf("expected 200 for own entity, got %v", status)
+	}
+	if len(cards) != 2 {
+		t.Fatalf("expected 2 cards for entity 1, got %d", len(cards))
+	}
+	counts := make(map[int]int)
+	for _, ec := range cards {
+		counts[ec.Card.ID] = ec.EntityCount
+	}
+	if counts[1] != 3 {
+		t.Errorf("expected card 1 entity count 3, got %d", counts[1])
+	}
+	if counts[2] != 2 {
+		t.Errorf("expected card 2 entity count 2, got %d", counts[2])
+	}
+
+	// Entity 3 belongs to user 2 -> 404 for user 1.
+	if status, _ := fetch(3, 1); status != http.StatusNotFound {
+		t.Errorf("expected 404 for other user's entity, got %v", status)
+	}
+
+	// Unknown entity -> 404.
+	if status, _ := fetch(99999, 1); status != http.StatusNotFound {
+		t.Errorf("expected 404 for unknown entity, got %v", status)
+	}
+}
