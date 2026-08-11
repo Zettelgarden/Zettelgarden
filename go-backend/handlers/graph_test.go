@@ -118,6 +118,62 @@ func TestGetGraph_TypesFilter(t *testing.T) {
 	}
 }
 
+// TestGetNetworkStats verifies network health metrics: totals, average links,
+// orphan count, top connectors, and month buckets.
+func TestGetNetworkStats(t *testing.T) {
+	s := NewHandler()
+	defer tests.Teardown()
+
+	token, _ := tests.GenerateTestJWT(1)
+	req, err := http.NewRequest("GET", "/api/graph/stats", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	rr := httptest.NewRecorder()
+	router := mux.NewRouter()
+	router.HandleFunc("/api/graph/stats", s.JwtMiddleware(s.GetNetworkStatsRoute))
+	router.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var stats models.NetworkStats
+	tests.ParseJsonResponse(t, rr.Body.Bytes(), &stats)
+
+	// Fixture: 13 user-1 cards; 2 non-self backlinks (12->1, 3->4).
+	if stats.TotalCards != 13 {
+		t.Errorf("expected 13 cards, got %d", stats.TotalCards)
+	}
+	if stats.TotalLinks != 2 {
+		t.Errorf("expected 2 links, got %d", stats.TotalLinks)
+	}
+	if stats.AvgLinksPerCard != 2.0/13.0 {
+		t.Errorf("unexpected average: %v", stats.AvgLinksPerCard)
+	}
+	if stats.OrphanCount == 0 {
+		t.Error("expected some orphan cards in the fixture")
+	}
+	if len(stats.TopConnectors) == 0 {
+		t.Error("expected at least one top connector")
+	}
+	// Fixture connectors: card 3 (1 out), card 12 (1 out), card 4 (1 in), card 1 (1 in).
+	found := false
+	for _, c := range stats.TopConnectors {
+		if c.Card.ID == 12 && c.Count == 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected card 12 among top connectors with count 1")
+	}
+	if len(stats.LinksByMonth) != 6 {
+		t.Errorf("expected 6 month buckets, got %d", len(stats.LinksByMonth))
+	}
+}
+
 // TestParseGraphTypes verifies the types filter parser defaults and fallbacks.
 func TestParseGraphTypes(t *testing.T) {
 	all := services.ParseGraphTypes("")

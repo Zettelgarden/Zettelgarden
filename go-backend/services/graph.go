@@ -1,9 +1,11 @@
 package services
 
 import (
+	"database/sql"
 	"fmt"
 	"go-backend/models"
 	"strings"
+	"time"
 )
 
 // GraphNodeTypes are the supported node types in the knowledge graph.
@@ -398,4 +400,131 @@ func FindPathBetweenCards(db models.Database, userID int, fromID, toID int) ([]m
 		}
 	}
 	return path, nil
+}
+
+// GetNetworkStats aggregates network health metrics for the user's vault:
+// totals, average links per card, orphan count (reuses the orphan query),
+// top connectors, and link growth by month. Uses cheap aggregation queries
+// only - no per-card semantic scans.
+func GetNetworkStats(db models.Database, userID int) (models.NetworkStats, error) {
+	stats := models.NetworkStats{
+		TopConnectors: []models.Connector{},
+		LinksByMonth:  []models.MonthCount{},
+	}
+
+	// Total cards and links.
+	if err := db.QueryRow(`
+		SELECT COUNT(*) FROM cards WHERE user_id = $1 AND is_deleted = FALSE
+	`, userID).Scan(&stats.TotalCards); err != nil {
+		return stats, fmt.Errorf("failed to count cards: %w", err)
+	}
+	if err := db.QueryRow(`
+		SELECT COUNT(*)
+		FROM backlinks b
+		JOIN cards cs ON b.source_id_int = cs.id
+		JOIN cards ct ON b.target_id_int = ct.id
+		WHERE cs.user_id = $1 AND ct.user_id = $1
+		  AND cs.is_deleted = FALSE AND ct.is_deleted = FALSE
+		  AND b.source_id_int != b.target_id_int
+	`, userID).Scan(&stats.TotalLinks); err != nil {
+		return stats, fmt.Errorf("failed to count links: %w", err)
+	}
+	if stats.TotalCards > 0 {
+		stats.AvgLinksPerCard = float64(stats.TotalLinks) / float64(stats.TotalCards)
+	}
+
+	// Orphan count (reuses GetOrphanCards - junction queries only).
+	if orphans, err := GetOrphanCards(db, userID); err != nil {
+		return stats, fmt.Errorf("failed to count orphans: %w", err)
+	} else {
+		stats.OrphanCount = len(orphans)
+	}
+
+	// Top connectors: reference degree (in + out) per card, top 10.
+	connRows, err := db.Query(`
+		SELECT card_pk, COUNT(*) AS degree
+		FROM (
+			SELECT b.source_id_int AS card_pk
+			FROM backlinks b
+			JOIN cards c ON b.source_id_int = c.id
+			WHERE c.user_id = $1 AND c.is_deleted = FALSE AND b.source_id_int != b.target_id_int
+			UNION ALL
+			SELECT b.target_id_int AS card_pk
+			FROM backlinks b
+			JOIN cards c ON b.target_id_int = c.id
+			WHERE c.user_id = $1 AND c.is_deleted = FALSE AND b.source_id_int != b.target_id_int
+		)
+		GROUP BY card_pk
+		ORDER BY degree DESC
+		LIMIT 10
+	`, userID)
+	if err != nil {
+		return stats, fmt.Errorf("failed to query top connectors: %w", err)
+	}
+	defer connRows.Close()
+	type degreeRow struct {
+		id     int
+		degree int
+	}
+	var degrees []degreeRow
+	for connRows.Next() {
+		var d degreeRow
+		if err := connRows.Scan(&d.id, &d.degree); err != nil {
+			return stats, fmt.Errorf("failed to scan connector: %w", err)
+		}
+		degrees = append(degrees, d)
+	}
+	if err = connRows.Err(); err != nil {
+		return stats, fmt.Errorf("error iterating connectors: %w", err)
+	}
+	for _, d := range degrees {
+		partialCard, err := GetPartialCard(db, userID, d.id)
+		if err != nil {
+			continue
+		}
+		stats.TopConnectors = append(stats.TopConnectors, models.Connector{
+			Card:  partialCard,
+			Count: d.degree,
+		})
+	}
+
+	// Link growth by month (last 6 months, zero-filled).
+	monthRows, err := db.Query(`
+		SELECT strftime('%Y-%m', b.created_at) AS month, COUNT(*) AS cnt
+		FROM backlinks b
+		JOIN cards c ON b.source_id_int = c.id
+		WHERE c.user_id = $1 AND c.is_deleted = FALSE AND b.source_id_int != b.target_id_int
+		GROUP BY month
+		ORDER BY month ASC
+	`, userID)
+	if err != nil {
+		return stats, fmt.Errorf("failed to query link months: %w", err)
+	}
+	defer monthRows.Close()
+	countsByMonth := make(map[string]int)
+	for monthRows.Next() {
+		var month sql.NullString
+		var cnt int
+		if err := monthRows.Scan(&month, &cnt); err != nil {
+			return stats, fmt.Errorf("failed to scan month count: %w", err)
+		}
+		if !month.Valid {
+			continue
+		}
+		countsByMonth[month.String] = cnt
+	}
+	if err = monthRows.Err(); err != nil {
+		return stats, fmt.Errorf("error iterating month counts: %w", err)
+	}
+
+	now := time.Now().UTC()
+	for i := 5; i >= 0; i-- {
+		month := now.AddDate(0, -i, 0).Format("2006-01")
+		stats.LinksByMonth = append(stats.LinksByMonth, models.MonthCount{
+			Month: month,
+			Count: countsByMonth[month],
+		})
+	}
+
+	return stats, nil
 }

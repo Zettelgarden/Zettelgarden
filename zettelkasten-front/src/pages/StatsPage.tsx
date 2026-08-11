@@ -12,6 +12,7 @@ import { ActivityHeatMap } from '../components/stats/ActivityHeatMap';
 import { DayTaskList } from '../components/stats/DayTaskList';
 import { DayCardList } from '../components/stats/DayCardList';
 import { CardItem } from '../components/cards/CardItem';
+import { NetworkHealthSection } from '../components/stats/NetworkHealthSection';
 import { getOrphanCards } from '../api/cards';
 import { MobileTopBar } from '../components/layout/MobileTopBar';
 import { useUIState } from '../contexts/UIStateContext';
@@ -201,6 +202,11 @@ export function StatsPage() {
             )}
           </div>
         )}
+
+        {/* Network health */}
+        <div className="mb-6">
+          <NetworkHealthSection />
+        </div>
 
         {/* Orphan Cards */}
         <div className="bg-white rounded-lg shadow p-6">

@@ -7,4 +7,5 @@ import (
 
 func RegisterGraphRoutes(r *mux.Router, h *handlers.Handler) {
 	addProtectedRoute(r, h, "/api/graph", h.GetGraphRoute, "GET")
+	addProtectedRoute(r, h, "/api/graph/stats", h.GetNetworkStatsRoute, "GET")
 }

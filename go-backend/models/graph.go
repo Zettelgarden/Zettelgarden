@@ -21,3 +21,25 @@ type GraphData struct {
 	Nodes []GraphNode `json:"nodes"`
 	Edges []GraphEdge `json:"edges"`
 }
+
+// Connector is a card with its reference degree (incoming + outgoing links).
+type Connector struct {
+	Card  PartialCard `json:"card"`
+	Count int         `json:"count"`
+}
+
+// MonthCount is a link count for one calendar month ("2006-01").
+type MonthCount struct {
+	Month string `json:"month"`
+	Count int    `json:"count"`
+}
+
+// NetworkStats summarizes the health of a user's card network.
+type NetworkStats struct {
+	TotalCards      int          `json:"total_cards"`
+	TotalLinks      int          `json:"total_links"`
+	AvgLinksPerCard float64      `json:"avg_links_per_card"`
+	OrphanCount     int          `json:"orphan_count"`
+	TopConnectors   []Connector  `json:"top_connectors"`
+	LinksByMonth    []MonthCount `json:"links_by_month"`
+}
